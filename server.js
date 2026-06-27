@@ -214,6 +214,64 @@ app.post('/api', async (req, res) => {
     }
 });
 
+// ── Teacher Auth ─────────────────────────────────────────────────────────────
+
+const teacherTokens = new Map(); // token → teacherName
+
+function requireTeacher(req, res, next) {
+    const auth  = req.headers['authorization'] || '';
+    const token = auth.replace('Bearer ', '').trim();
+    if (!token || !teacherTokens.has(token)) return res.status(401).json({ error: 'Unauthorized' });
+    req.teacherName = teacherTokens.get(token);
+    next();
+}
+
+app.get('/teacher', (req, res) => res.sendFile(join(__dirname, 'teacher-portal.html')));
+
+app.post('/teacher/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
+    const result = await pool.query('SELECT * FROM teachers WHERE name = $1', [username]);
+    if (!result.rows.length) return res.status(401).json({ error: 'Enseignant introuvable' });
+    const teacher = result.rows[0];
+    const match = await bcrypt.compare(password, teacher.password_hash);
+    if (!match) return res.status(401).json({ error: 'Mot de passe incorrect' });
+    const token = crypto.randomBytes(32).toString('hex');
+    teacherTokens.set(token, teacher.name);
+    res.json({ token, name: teacher.name });
+});
+
+app.post('/teacher/logout', requireTeacher, (req, res) => {
+    const token = req.headers['authorization'].replace('Bearer ', '').trim();
+    teacherTokens.delete(token);
+    res.json({ ok: true });
+});
+
+app.get('/api/teacher/students', requireTeacher, async (req, res) => {
+    const rows = await pool.query(
+        `SELECT s.id, s.full_name, s.phone, s.email, s.enrolled_at,
+                c.name_fr AS course_fr, c.name_ar AS course_ar
+         FROM students s
+         LEFT JOIN courses c ON c.id = s.course_id
+         WHERE s.teacher_name = $1
+         ORDER BY s.full_name`, [req.teacherName]
+    );
+    res.json(rows.rows);
+});
+
+app.get('/api/teacher/grades', requireTeacher, async (req, res) => {
+    const rows = await pool.query(
+        `SELECT student_name, session_date, created_at, attendance,
+                revision_score, recitation_score, preparation_score,
+                arabe_score, tarbiya_score, devoir_score, remarque, final_grade
+         FROM session_grades
+         WHERE teacher_name = $1
+         ORDER BY COALESCE(session_date::date, created_at::date) DESC
+         LIMIT 300`, [req.teacherName]
+    );
+    res.json(rows.rows);
+});
+
 // ── Admin Auth ───────────────────────────────────────────────────────────────
 
 app.post('/admin/login', async (req, res) => {

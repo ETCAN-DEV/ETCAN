@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portail Enseignant — Académie ETCAN</title>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --accent:  #c8a94e;
+    --green:   #2e7d32;
+    --red:     #c62828;
+    --orange:  #e65100;
+    --border:  #d0d7e2;
+    --bg:      #f4f6fa;
+    --card:    #ffffff;
+    --text:    #1a1a2e;
+    --muted:   #6c7a95;
+    --sidebar: #162d4a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Login ── */
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--primary) 0%, #2a4f80 100%);
+    padding: 24px;
+  }
+  .login-card {
+    background: white; border-radius: 16px; padding: 44px 40px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  .login-card .logo { font-size: 2.4rem; text-align: center; margin-bottom: 6px; }
+  .login-card h1 { font-size: 1.3rem; text-align: center; color: var(--primary); margin-bottom: 4px; }
+  .login-card .sub { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 28px; }
+  .login-card label { font-size: .8rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 5px; }
+  .login-card input {
+    width: 100%; padding: 11px 14px; border: 1.5px solid var(--border);
+    border-radius: 9px; font-size: .95rem; outline: none; margin-bottom: 16px;
+    transition: border-color .2s;
+  }
+  .login-card input:focus { border-color: var(--primary); }
+  .btn-login {
+    width: 100%; padding: 12px; background: var(--primary); color: white;
+    border: none; border-radius: 9px; font-size: 1rem; font-weight: 600;
+    cursor: pointer; margin-top: 4px; transition: background .2s;
+  }
+  .btn-login:hover { background: #2a4f80; }
+  .login-error {
+    background: #fdecea; color: var(--red); border-radius: 8px;
+    padding: 10px 14px; font-size: .85rem; margin-bottom: 14px; display: none;
+  }
+  .login-hint {
+    text-align: center; margin-top: 18px; font-size: .78rem; color: var(--muted);
+  }
+
+  /* ── Portal layout ── */
+  #portal { display: none; min-height: 100vh; flex-direction: column; }
+
+  /* Top nav */
+  .top-nav {
+    background: var(--primary); color: white;
+    padding: 0 28px; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+  }
+  .top-nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; }
+  .top-nav .brand span { color: var(--accent); }
+  .top-nav .teacher-info { display: flex; align-items: center; gap: 14px; }
+  .top-nav .teacher-name {
+    font-size: .88rem; color: rgba(255,255,255,.85);
+    background: rgba(255,255,255,.08); padding: 5px 14px; border-radius: 20px;
+  }
+  .btn-logout {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+    color: white; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    font-size: .82rem; transition: background .2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,.22); }
+
+  /* Tabs */
+  .tabs-bar {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 0 28px; display: flex; gap: 4px;
+  }
+  .tab-btn {
+    padding: 14px 20px; font-size: .9rem; font-weight: 600; cursor: pointer;
+    border: none; background: none; color: var(--muted);
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* Content area */
+  .content { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+  /* Stats row */
+  .stat-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat-pill {
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 22px; min-width: 150px; flex: 1;
+  }
+  .stat-pill .val { font-size: 1.8rem; font-weight: 700; color: var(--primary); line-height: 1; }
+  .stat-pill .lbl { font-size: .76rem; color: var(--muted); margin-top: 4px; }
+  .stat-pill.green .val { color: var(--green); }
+  .stat-pill.orange .val { color: var(--orange); }
+  .stat-pill.red .val { color: var(--red); }
+
+  /* Cards */
+  .card {
+    background: white; border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    padding: 24px; margin-bottom: 20px;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+  }
+  .card-header h2 { font-size: 1rem; color: var(--text); }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .filter-bar input[type="search"] {
+    padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: .88rem; outline: none; min-width: 200px;
+  }
+  .filter-bar input[type="search"]:focus { border-color: var(--primary); }
+  .filter-bar .count { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th {
+    background: var(--primary); color: white; padding: 10px 12px;
+    text-align: left; font-size: .78rem; white-space: nowrap;
+  }
+  th:first-child { border-radius: 6px 0 0 6px; }
+  th:last-child  { border-radius: 0 6px 6px 0; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f5f8ff; }
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
+  tr.hidden { display: none; }
+
+  /* Attendance badges */
+  .att { font-size: .78rem; font-weight: 600; }
+  .att-present { color: var(--green); }
+  .att-late    { color: var(--orange); }
+  .att-absent  { color: var(--red); }
+
+  /* Grade colour */
+  .g-high { color: var(--green); font-weight: 700; }
+  .g-mid  { color: var(--orange); font-weight: 700; }
+  .g-low  { color: var(--red); font-weight: 700; }
+
+  /* Bulletin link */
+  .btn-bulletin {
+    display: inline-block; padding: 5px 11px; background: var(--primary); color: white;
+    border-radius: 7px; font-size: .78rem; font-weight: 600; text-decoration: none;
+    transition: background .2s;
+  }
+  .btn-bulletin:hover { background: #2a4f80; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #333; color: white; padding: 10px 22px; border-radius: 8px;
+    font-size: .88rem; opacity: 0; transition: opacity .25s; pointer-events: none;
+    white-space: nowrap; z-index: 9999;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 600px) {
+    .top-nav { padding: 0 16px; }
+    .content { padding: 16px 12px; }
+    .login-card { padding: 30px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo">🎓</div>
+    <h1>Académie ETCAN</h1>
+    <div class="sub">Portail Enseignant — بوابة الأستاذ</div>
+
+    <div class="login-error" id="login-error"></div>
+
+    <label>Nom de l'enseignant — اسم الأستاذ</label>
+    <input id="login-name" type="text" placeholder="Ustadh Ahmed…" autocomplete="username"
+           onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()" />
+
+    <label>Mot de passe — كلمة المرور</label>
+    <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')doLogin()" />
+
+    <button class="btn-login" onclick="doLogin()">Se connecter — تسجيل الدخول</button>
+    <div class="login-hint">Seuls les enseignants enregistrés peuvent se connecter.</div>
+  </div>
+</div>
+
+<!-- ── PORTAL ─────────────────────────────────────────────────────────────── -->
+<div id="portal">
+  <nav class="top-nav">
+    <div class="brand">🎓 <span>Académie ETCAN</span> — Portail Enseignant</div>
+    <div class="teacher-info">
+      <span class="teacher-name" id="nav-teacher-name">—</span>
+      <button class="btn-logout" onclick="doLogout()">Déconnexion ↩</button>
+    </div>
+  </nav>
+
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('students', this)">👤 Mes élèves</button>
+    <button class="tab-btn" onclick="switchTab('grades', this)">📋 Historique des séances</button>
+  </div>
+
+  <!-- ── STUDENTS TAB ── -->
+  <div id="tab-students" class="content">
+
+    <div class="stat-row" id="student-stats">
+      <div class="stat-pill"><div class="val" id="st-total">—</div><div class="lbl">Élèves au total</div></div>
+      <div class="stat-pill green"><div class="val" id="st-sessions">—</div><div class="lbl">Sessions enregistrées</div></div>
+      <div class="stat-pill"><div class="val" id="st-avg">—</div><div class="lbl">Moyenne générale / 20</div></div>
+      <div class="stat-pill green"><div class="val" id="st-present-pct">—</div><div class="lbl">Taux de présence</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Liste de mes élèves</h2>
+      </div>
+      <div class="filter-bar">
+        <input type="search" id="s-search" placeholder="🔍 Rechercher un élève…" oninput="filterStudents()" />
+        <span class="count" id="s-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nom — الاسم</th>
+              <th>Cours — الدرس</th>
+              <th>Téléphone</th>
+              <th>Inscrit depuis</th>
+              <th>Bulletin</th>
+            </tr>
+          </thead>
+          <tbody id="students-tbody">
+            <tr><td colspan="6" class="empty-state">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GRADES TAB ── -->
+  <div id="tab-grades" class="content" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <h2>Historique des séances (300 dernières)</h2>
+      </div>
+      <div class="filter-bar">
+        <input type="search" id="g-search" placeholder="🔍 Rechercher par élève…" oninput="filterGrades()" />
+        <select id="g-att-filter" onchange="filterGrades()"
+          style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:.88rem;outline:none">
+          <option value="">Toutes les présences</option>
+          <option value="present">✔ Présent</option>
+          <option value="late">⏱ Retard</option>
+          <option value="absent">✘ Absent</option>
+        </select>
+        <span class="count" id="g-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Élève</th>
+              <th>Présence</th>
+              <th>Révis.</th><th>Récit.</th><th>Prép.</th>
+              <th>Arabe</th><th>Tarbiya</th><th>Devoir</th>
+              <th>Remarque</th>
+              <th>Note finale</th>
+              <th>Bulletin</th>
+            </tr>
+          </thead>
+          <tbody id="grades-tbody">
+            <tr><td colspan="12" class="empty-state">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let authToken = sessionStorage.getItem('teacher_token') || null;
+  let teacherName = sessionStorage.getItem('teacher_name') || null;
+  let cachedStudents = [];
+  let cachedGrades   = [];
+  // map student name → student id (for bulletin links)
+  let studentIdMap = {};
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  if (authToken && teacherName) showPortal();
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  async function doLogin() {
+    const username = document.getElementById('login-name').value.trim();
+    const password = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    if (!username || !password) { showErr('Veuillez remplir tous les champs.'); return; }
+
+    const btn = document.querySelector('.btn-login');
+    btn.textContent = '…'; btn.disabled = true;
+    try {
+      const res = await fetch('/teacher/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
+      authToken = data.token;
+      teacherName = data.name;
+      sessionStorage.setItem('teacher_token', authToken);
+      sessionStorage.setItem('teacher_name', teacherName);
+      showPortal();
+    } catch (e) {
+      showErr(e.message);
+    } finally {
+      btn.textContent = 'Se connecter — تسجيل الدخول'; btn.disabled = false;
+    }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = '❌ ' + msg; el.style.display = 'block';
+  }
+
+  async function doLogout() {
+    try { await api('POST', '/teacher/logout'); } catch {}
+    sessionStorage.removeItem('teacher_token');
+    sessionStorage.removeItem('teacher_name');
+    authToken = null; teacherName = null;
+    document.getElementById('portal').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-pass').value = '';
+  }
+
+  function showPortal() {
+    document.getElementById('login-screen').style.display = 'none';
+    const p = document.getElementById('portal');
+    p.style.display = 'flex'; p.style.flexDirection = 'column';
+    document.getElementById('nav-teacher-name').textContent = '👤 ' + teacherName;
+    loadStudents();
+    loadGrades();
+  }
+
+  // ── API helper ─────────────────────────────────────────────────────────────
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      headers: { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    if (res.status === 401) { doLogout(); throw new Error('Session expirée'); }
+    return res.json();
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-students').style.display = tab === 'students' ? 'block' : 'none';
+    document.getElementById('tab-grades').style.display   = tab === 'grades'   ? 'block' : 'none';
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function fmt(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  }
+  function gradeClass(v) {
+    const n = parseFloat(v);
+    if (isNaN(n)) return '';
+    if (n >= 14) return 'g-high';
+    if (n >= 10) return 'g-mid';
+    return 'g-low';
+  }
+  function attBadge(v) {
+    if (!v || v === 'present') return '<span class="att att-present">✔ Présent</span>';
+    if (v === 'late')          return '<span class="att att-late">⏱ Retard</span>';
+    if (v === 'absent')        return '<span class="att att-absent">✘ Absent</span>';
+    return v;
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+  function trunc(s, n) {
+    if (!s) return '—';
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+
+  // ── Load students ─────────────────────────────────────────────────────────
+  async function loadStudents() {
+    try {
+      cachedStudents = await api('GET', '/api/teacher/students');
+    } catch { return; }
+    // build name→id map
+    cachedStudents.forEach(s => { studentIdMap[s.full_name] = s.id; });
+
+    const tbody = document.getElementById('students-tbody');
+    if (!cachedStudents.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun élève assigné pour le moment.</td></tr>`;
+      updateStudentCount(); return;
+    }
+    tbody.innerHTML = cachedStudents.map((s, i) => `
+      <tr data-name="${(s.full_name || '').toLowerCase()}">
+        <td>${i + 1}</td>
+        <td><strong>${s.full_name}</strong></td>
+        <td>${s.course_fr || '—'}${s.course_ar ? ' / ' + s.course_ar : ''}</td>
+        <td>${s.phone || '—'}</td>
+        <td>${fmt(s.enrolled_at)}</td>
+        <td><a class="btn-bulletin" href="/report/${s.id}" target="_blank">📄 Bulletin</a></td>
+      </tr>`).join('');
+    updateStudentCount();
+    updateStatsBar();
+  }
+
+  // ── Load grades ───────────────────────────────────────────────────────────
+  async function loadGrades() {
+    try {
+      cachedGrades = await api('GET', '/api/teacher/grades');
+    } catch { return; }
+    const tbody = document.getElementById('grades-tbody');
+    if (!cachedGrades.length) {
+      tbody.innerHTML = `<tr><td colspan="12" class="empty-state">Aucune séance enregistrée.</td></tr>`;
+      updateGradeCount(); return;
+    }
+    renderGrades(cachedGrades);
+    updateStatsBar();
+  }
+
+  function renderGrades(rows) {
+    const tbody = document.getElementById('grades-tbody');
+    tbody.innerHTML = rows.map(r => {
+      const sid = studentIdMap[r.student_name];
+      const bulletinLink = sid
+        ? `<a class="btn-bulletin" href="/report/${sid}" target="_blank">📄</a>`
+        : '—';
+      return `
+        <tr data-name="${(r.student_name||'').toLowerCase()}" data-att="${r.attendance||'present'}">
+          <td>${fmt(r.session_date || r.created_at)}</td>
+          <td><strong>${r.student_name}</strong></td>
+          <td>${attBadge(r.attendance)}</td>
+          <td>${r.revision_score ?? '—'}</td>
+          <td>${r.recitation_score ?? '—'}</td>
+          <td>${r.preparation_score ?? '—'}</td>
+          <td>${r.arabe_score ?? '—'}</td>
+          <td>${r.tarbiya_score ?? '—'}</td>
+          <td>${r.devoir_score ?? '—'}</td>
+          <td style="font-size:.78rem;color:var(--muted)">${trunc(r.remarque, 35)}</td>
+          <td class="${gradeClass(r.final_grade)}">${r.final_grade ?? '—'}</td>
+          <td>${bulletinLink}</td>
+        </tr>`;
+    }).join('');
+    updateGradeCount();
+  }
+
+  // ── Stats bar ─────────────────────────────────────────────────────────────
+  function updateStatsBar() {
+    document.getElementById('st-total').textContent = cachedStudents.length;
+    document.getElementById('st-sessions').textContent = cachedGrades.length;
+
+    const finals = cachedGrades.map(g => parseFloat(g.final_grade)).filter(v => !isNaN(v));
+    const avgVal = finals.length ? (finals.reduce((a,b)=>a+b,0)/finals.length).toFixed(1) : '—';
+    const avgEl = document.getElementById('st-avg');
+    avgEl.textContent = avgVal;
+    if (avgVal !== '—') {
+      const n = parseFloat(avgVal);
+      avgEl.className = 'val ' + (n >= 14 ? 'g-high' : n >= 10 ? 'g-mid' : 'g-low');
+    }
+
+    const total = cachedGrades.length;
+    const present = cachedGrades.filter(g => !g.attendance || g.attendance === 'present').length;
+    const pct = total ? Math.round((present / total) * 100) : '—';
+    const pctEl = document.getElementById('st-present-pct');
+    pctEl.textContent = pct === '—' ? '—' : pct + '%';
+    if (pct !== '—') {
+      pctEl.parentElement.className = 'stat-pill ' + (pct >= 80 ? 'green' : pct >= 60 ? 'orange' : 'red');
+    }
+  }
+
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  function filterStudents() {
+    const q = document.getElementById('s-search').value.toLowerCase();
+    document.querySelectorAll('#students-tbody tr[data-name]').forEach(row => {
+      row.classList.toggle('hidden', q && !row.dataset.name.includes(q));
+    });
+    updateStudentCount();
+  }
+  function updateStudentCount() {
+    const all = document.querySelectorAll('#students-tbody tr[data-name]');
+    const vis = document.querySelectorAll('#students-tbody tr[data-name]:not(.hidden)');
+    const el = document.getElementById('s-count');
+    if (el && all.length) el.textContent = `${vis.length} / ${all.length} élèves`;
+  }
+
+  function filterGrades() {
+    const q   = document.getElementById('g-search').value.toLowerCase();
+    const att = document.getElementById('g-att-filter').value;
+    document.querySelectorAll('#grades-tbody tr[data-name]').forEach(row => {
+      const nameOk = !q   || row.dataset.name.includes(q);
+      const attOk  = !att || row.dataset.att === att;
+      row.classList.toggle('hidden', !(nameOk && attOk));
+    });
+    updateGradeCount();
+  }
+  function updateGradeCount() {
+    const all = document.querySelectorAll('#grades-tbody tr[data-name]');
+    const vis = document.querySelectorAll('#grades-tbody tr[data-name]:not(.hidden)');
+    const el = document.getElementById('g-count');
+    if (el && all.length) el.textContent = `${vis.length} / ${all.length} séances`;
+  }
+</script>
+</body>
+</html>
