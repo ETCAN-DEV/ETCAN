@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin — Académie ETCAN</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -142,6 +143,24 @@
   #toast.show { opacity: 1; }
 
   .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .95rem; }
+
+  /* ── Stats ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .stat-card .stat-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .stat-card .stat-value { font-size: 2rem; font-weight: 800; color: var(--primary); line-height: 1; }
+  .stat-card .stat-sub   { font-size: .8rem; color: var(--muted); }
+  .stat-card.accent .stat-value { color: #d97706; }
+  .stat-card.green  .stat-value { color: var(--success); }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .chart-card h3 { font-size: .85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 16px; }
+  .chart-wrap { position: relative; height: 220px; }
 </style>
 </head>
 <body>
@@ -171,6 +190,7 @@
     <button onclick="switchTab('news',      this)">📰 Actualités</button>
     <button onclick="switchTab('registrations', this)">📋 Inscriptions</button>
     <button onclick="switchTab('grades',    this)">📊 Notes</button>
+    <button onclick="switchTab('stats',     this)">📈 Statistiques</button>
   </nav>
 
   <main>
@@ -303,6 +323,52 @@
       </div>
     </div>
 
+    <!-- STATS -->
+    <div class="tab-panel" id="tab-stats">
+
+      <div class="stat-grid" id="stat-cards">
+        <div class="stat-card"><div class="stat-label">Enseignants</div><div class="stat-value" id="st-teachers">—</div></div>
+        <div class="stat-card"><div class="stat-label">Étudiants</div><div class="stat-value" id="st-students">—</div></div>
+        <div class="stat-card"><div class="stat-label">Cours</div><div class="stat-value" id="st-courses">—</div></div>
+        <div class="stat-card accent"><div class="stat-label">Sessions ce mois</div><div class="stat-value" id="st-month">—</div><div class="stat-sub" id="st-total"></div></div>
+        <div class="stat-card green"><div class="stat-label">Inscriptions en attente</div><div class="stat-value" id="st-pending">—</div><div class="stat-sub" id="st-confirmed"></div></div>
+        <div class="stat-card"><div class="stat-label">Actualités publiées</div><div class="stat-value" id="st-news">—</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Sessions par mois (6 derniers mois)</h3>
+          <div class="chart-wrap"><canvas id="chart-months"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Moyenne des notes par enseignant</h3>
+          <div class="chart-wrap"><canvas id="chart-teachers"></canvas></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <h2>🏆 Top 10 étudiants (moyenne finale)</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Rang</th><th>Étudiant</th><th>Sessions</th><th>Moyenne</th></tr></thead>
+              <tbody id="top-students-tbody"><tr><td colspan="4" class="empty-state">Chargement…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h2>🕐 10 dernières sessions</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Enseignant</th><th>Étudiant</th><th>Note</th></tr></thead>
+              <tbody id="recent-sessions-tbody"><tr><td colspan="4" class="empty-state">Chargement…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </main>
 </div>
 
@@ -404,6 +470,7 @@
     if (name === 'news')          loadNews();
     if (name === 'registrations') loadRegistrations();
     if (name === 'grades')        loadGrades();
+    if (name === 'stats')         loadStats();
   }
 
   // ── Teachers ──────────────────────────────────────────────────────────────
@@ -614,6 +681,96 @@
     await api('PATCH', `/admin/registrations/${id}/status`, { status });
     toast('Statut mis à jour.');
     loadRegistrations();
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+
+  let chartMonths, chartTeachers;
+
+  async function loadStats() {
+    const s = await api('GET', '/admin/stats');
+    const c = s.counts;
+
+    document.getElementById('st-teachers').textContent = c.teachers;
+    document.getElementById('st-students').textContent  = c.students;
+    document.getElementById('st-courses').textContent   = c.courses;
+    document.getElementById('st-news').textContent      = c.news;
+    document.getElementById('st-month').textContent     = c.sessions_this_month;
+    document.getElementById('st-total').textContent     = `${c.sessions_total} sessions au total`;
+    document.getElementById('st-pending').textContent   = s.registrations.pending   || 0;
+    document.getElementById('st-confirmed').textContent = `${s.registrations.confirmed || 0} confirmée(s)`;
+
+    // Chart: sessions per month
+    const mLabels = s.sessionsByMonth.map(r => r.month);
+    const mData   = s.sessionsByMonth.map(r => parseInt(r.sessions));
+    if (chartMonths) chartMonths.destroy();
+    chartMonths = new Chart(document.getElementById('chart-months'), {
+      type: 'bar',
+      data: {
+        labels: mLabels.length ? mLabels : ['Aucune donnée'],
+        datasets: [{
+          label: 'Sessions',
+          data: mLabels.length ? mData : [0],
+          backgroundColor: '#1a365d',
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+      }
+    });
+
+    // Chart: avg grade per teacher
+    const tLabels = s.avgByTeacher.map(r => r.teacher_name);
+    const tData   = s.avgByTeacher.map(r => parseFloat(r.avg_grade) || 0);
+    if (chartTeachers) chartTeachers.destroy();
+    chartTeachers = new Chart(document.getElementById('chart-teachers'), {
+      type: 'bar',
+      data: {
+        labels: tLabels.length ? tLabels : ['Aucune donnée'],
+        datasets: [{
+          label: 'Moyenne',
+          data: tLabels.length ? tData : [0],
+          backgroundColor: '#f6ad55',
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, max: 20 } }
+      }
+    });
+
+    // Top students table
+    const tBody = document.getElementById('top-students-tbody');
+    if (!s.topStudents.length) {
+      tBody.innerHTML = `<tr><td colspan="4" class="empty-state">Pas encore de notes.</td></tr>`;
+    } else {
+      tBody.innerHTML = s.topStudents.map((r, i) => `
+        <tr>
+          <td>${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</td>
+          <td><strong>${r.student_name}</strong></td>
+          <td>${r.sessions}</td>
+          <td><span class="badge badge-green">${r.avg_grade ?? '—'}</span></td>
+        </tr>`).join('');
+    }
+
+    // Recent sessions table
+    const rBody = document.getElementById('recent-sessions-tbody');
+    if (!s.recentSessions.length) {
+      rBody.innerHTML = `<tr><td colspan="4" class="empty-state">Aucune session.</td></tr>`;
+    } else {
+      rBody.innerHTML = s.recentSessions.map(r => `
+        <tr>
+          <td>${r.session_date || fmt(r.created_at)}</td>
+          <td>${r.teacher_name}</td>
+          <td>${r.student_name}</td>
+          <td><strong>${r.final_grade || '—'}</strong></td>
+        </tr>`).join('');
+    }
   }
 
   // ── Grades ────────────────────────────────────────────────────────────────

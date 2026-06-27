@@ -370,6 +370,74 @@ app.get('/admin/grades', requireAdmin, async (req, res) => {
     res.json(result.rows);
 });
 
+// ── Admin: Statistics ─────────────────────────────────────────────────────────
+
+app.get('/admin/stats', requireAdmin, async (req, res) => {
+    const [
+        counts,
+        regCounts,
+        sessionsByMonth,
+        avgByTeacher,
+        topStudents,
+        recentSessions
+    ] = await Promise.all([
+        pool.query(`
+            SELECT
+                (SELECT COUNT(*) FROM teachers)     AS teachers,
+                (SELECT COUNT(*) FROM students)     AS students,
+                (SELECT COUNT(*) FROM courses)      AS courses,
+                (SELECT COUNT(*) FROM news WHERE published = true) AS news,
+                (SELECT COUNT(*) FROM session_grades) AS sessions_total,
+                (SELECT COUNT(*) FROM session_grades
+                 WHERE created_at >= date_trunc('month', NOW())) AS sessions_this_month
+        `),
+        pool.query(`
+            SELECT status, COUNT(*) AS count
+            FROM registrations GROUP BY status
+        `),
+        pool.query(`
+            SELECT to_char(date_trunc('month', created_at), 'Mon YYYY') AS month,
+                   COUNT(*) AS sessions
+            FROM session_grades
+            WHERE created_at >= NOW() - INTERVAL '6 months'
+            GROUP BY 1 ORDER BY date_trunc('month', created_at)
+        `),
+        pool.query(`
+            SELECT teacher_name,
+                   COUNT(*) AS sessions,
+                   ROUND(AVG(NULLIF(final_grade, '')::numeric), 1) AS avg_grade
+            FROM session_grades
+            WHERE final_grade IS NOT NULL AND final_grade != ''
+            GROUP BY teacher_name ORDER BY sessions DESC
+        `),
+        pool.query(`
+            SELECT student_name,
+                   COUNT(*) AS sessions,
+                   ROUND(AVG(NULLIF(final_grade, '')::numeric), 1) AS avg_grade
+            FROM session_grades
+            WHERE final_grade IS NOT NULL AND final_grade != ''
+            GROUP BY student_name
+            ORDER BY avg_grade DESC NULLS LAST LIMIT 10
+        `),
+        pool.query(`
+            SELECT teacher_name, student_name, final_grade, session_date, created_at
+            FROM session_grades ORDER BY created_at DESC LIMIT 10
+        `)
+    ]);
+
+    const regMap = {};
+    regCounts.rows.forEach(r => { regMap[r.status] = parseInt(r.count); });
+
+    res.json({
+        counts: counts.rows[0],
+        registrations: regMap,
+        sessionsByMonth: sessionsByMonth.rows,
+        avgByTeacher: avgByTeacher.rows,
+        topStudents: topStudents.rows,
+        recentSessions: recentSessions.rows
+    });
+});
+
 // ── Serve static files (must be last) ────────────────────────────────────────
 
 app.get('/admin', (req, res) => res.sendFile(join(__dirname, 'admin.html')));
