@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bulletin de notes — Académie ETCAN</title>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --accent:  #c8a94e;
+    --green:   #2e7d32;
+    --red:     #c62828;
+    --border:  #d0d7e2;
+    --bg:      #f4f6fa;
+    --text:    #1a1a2e;
+    --muted:   #6c7a95;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 30px 16px 60px;
+  }
+
+  /* ── Loading / error ── */
+  #loading, #error {
+    text-align: center; padding: 80px 20px;
+    font-size: 1.1rem; color: var(--muted);
+  }
+  #error { color: var(--red); }
+  #report { display: none; max-width: 860px; margin: 0 auto; }
+
+  /* ── Print button bar ── */
+  .print-bar {
+    display: flex; justify-content: flex-end; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .btn-print {
+    background: var(--primary); color: white;
+    border: none; padding: 10px 22px; border-radius: 8px;
+    font-size: .9rem; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  }
+  .btn-print:hover { background: #2a4f80; }
+  .btn-share {
+    background: white; color: var(--primary);
+    border: 1.5px solid var(--primary); padding: 10px 22px; border-radius: 8px;
+    font-size: .9rem; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  }
+  .btn-share:hover { background: #eef2f8; }
+
+  /* ── Report card ── */
+  .card {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 3px 20px rgba(0,0,0,.08);
+    overflow: hidden;
+  }
+
+  /* Header band */
+  .card-header {
+    background: var(--primary);
+    padding: 28px 32px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .card-header .logo {
+    font-size: 2.6rem; line-height: 1;
+  }
+  .card-header .titles { flex: 1; }
+  .card-header .titles h1 {
+    color: white; font-size: 1.25rem; font-weight: 700; letter-spacing: .5px;
+  }
+  .card-header .titles .sub {
+    color: var(--accent); font-size: .88rem; margin-top: 3px;
+  }
+  .card-header .ar-title {
+    color: rgba(255,255,255,.7);
+    font-size: 1.1rem;
+    text-align: right;
+    direction: rtl;
+  }
+
+  /* Gold stripe */
+  .stripe { height: 5px; background: var(--accent); }
+
+  /* Student info */
+  .student-info {
+    padding: 24px 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .info-item label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); display: block; margin-bottom: 4px;
+  }
+  .info-item span {
+    font-size: .98rem; font-weight: 600; color: var(--text);
+  }
+
+  /* Summary badges */
+  .summary-bar {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: #f9fafc;
+  }
+  .badge {
+    flex: 1; min-width: 130px;
+    background: white; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; text-align: center;
+  }
+  .badge .val {
+    font-size: 1.6rem; font-weight: 700; color: var(--primary); line-height: 1;
+  }
+  .badge .lbl { font-size: .76rem; color: var(--muted); margin-top: 5px; }
+  .badge.good .val  { color: var(--green); }
+  .badge.warn .val  { color: #e65100; }
+  .badge.poor .val  { color: var(--red); }
+
+  /* Grades table */
+  .table-wrap { overflow-x: auto; padding: 0 32px 32px; }
+  .table-wrap h3 {
+    font-size: .88rem; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); padding: 24px 0 12px;
+  }
+  table {
+    width: 100%; border-collapse: collapse; font-size: .85rem;
+  }
+  th {
+    background: var(--primary); color: white;
+    padding: 10px 10px; text-align: center;
+    font-weight: 600; font-size: .78rem;
+    white-space: nowrap;
+  }
+  th:first-child { text-align: left; border-radius: 6px 0 0 6px; }
+  th:last-child  { border-radius: 0 6px 6px 0; }
+  td {
+    padding: 9px 10px; text-align: center;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  td:first-child { text-align: left; font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f5f8ff; }
+
+  .grade-cell { font-weight: 600; }
+  .grade-high { color: var(--green); }
+  .grade-mid  { color: #e65100; }
+  .grade-low  { color: var(--red); }
+
+  .avg-row td {
+    background: #f0f4ff; font-weight: 700;
+    border-top: 2px solid var(--primary);
+    border-bottom: none;
+  }
+
+  .no-grades {
+    text-align: center; padding: 40px;
+    color: var(--muted); font-size: .95rem;
+  }
+
+  /* Footer */
+  .card-footer {
+    background: var(--primary);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  .card-footer span { color: rgba(255,255,255,.6); font-size: .78rem; }
+  .card-footer .seal { color: var(--accent); font-size: .78rem; font-weight: 600; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #333; color: white; padding: 10px 22px; border-radius: 8px;
+    font-size: .9rem; opacity: 0; transition: opacity .25s; pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── Print styles ── */
+  @media print {
+    body { background: white; padding: 0; }
+    .print-bar { display: none; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+    tr:hover td { background: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">⏳ Chargement du bulletin…</div>
+<div id="error" style="display:none"></div>
+
+<div id="report">
+  <div class="print-bar">
+    <button class="btn-share" onclick="shareLink()">🔗 Partager le lien</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+  </div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="logo">🎓</div>
+      <div class="titles">
+        <h1>Académie ETCAN</h1>
+        <div class="sub">Bulletin de suivi individuel</div>
+      </div>
+      <div class="ar-title">أكاديمية إتقان<br><small style="font-size:.75rem;opacity:.7">كشف المتابعة الفردية</small></div>
+    </div>
+    <div class="stripe"></div>
+
+    <!-- Student info -->
+    <div class="student-info" id="student-info"></div>
+
+    <!-- Summary -->
+    <div class="summary-bar" id="summary-bar"></div>
+
+    <!-- Grades table -->
+    <div class="table-wrap">
+      <h3>Historique des séances — سجل الحصص</h3>
+      <div id="grades-container"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer">
+      <span id="footer-date">Généré le —</span>
+      <span class="seal">✦ Académie ETCAN ✦</span>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const id = location.pathname.split('/').pop();
+
+  function gradeClass(v) {
+    if (!v && v !== 0) return '';
+    const n = parseFloat(v);
+    if (isNaN(n)) return '';
+    if (n >= 14) return 'grade-high';
+    if (n >= 10) return 'grade-mid';
+    return 'grade-low';
+  }
+
+  function gradeColorClass(v) {
+    const cls = gradeClass(v);
+    return cls ? `grade-cell ${cls}` : '';
+  }
+
+  function fmt(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  function avg(grades, field) {
+    const vals = grades.map(g => parseFloat(g[field])).filter(v => !isNaN(v));
+    if (!vals.length) return null;
+    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function shareLink() {
+    const url = location.href;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => showToast('✅ Lien copié !'));
+    } else {
+      prompt('Copier ce lien :', url);
+    }
+  }
+
+  async function load() {
+    try {
+      const res = await fetch(`/api/report/${id}`);
+      if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
+      const { student, grades } = await res.json();
+
+      document.title = `Bulletin — ${student.full_name} | Académie ETCAN`;
+
+      // ── Student info
+      document.getElementById('student-info').innerHTML = `
+        <div class="info-item">
+          <label>Nom complet — الاسم الكامل</label>
+          <span>${student.full_name}</span>
+        </div>
+        <div class="info-item">
+          <label>Enseignant — الأستاذ</label>
+          <span>${student.teacher_name || '—'}</span>
+        </div>
+        <div class="info-item">
+          <label>Cours — الدرس</label>
+          <span>${student.course_fr || '—'}${student.course_ar ? ` / ${student.course_ar}` : ''}</span>
+        </div>
+        <div class="info-item">
+          <label>Inscrit depuis</label>
+          <span>${fmt(student.enrolled_at)}</span>
+        </div>
+      `;
+
+      // ── Summary badges
+      const avgFinal = avg(grades, 'final_grade');
+      const totalSessions = grades.length;
+      const topGrade = grades.reduce((best, g) => {
+        const v = parseFloat(g.final_grade);
+        return (!isNaN(v) && v > best) ? v : best;
+      }, 0);
+      let bandClass = 'good';
+      if (avgFinal < 10) bandClass = 'poor';
+      else if (avgFinal < 14) bandClass = 'warn';
+
+      document.getElementById('summary-bar').innerHTML = `
+        <div class="badge">
+          <div class="val">${totalSessions}</div>
+          <div class="lbl">Séances enregistrées</div>
+        </div>
+        <div class="badge ${bandClass}">
+          <div class="val">${avgFinal || '—'}</div>
+          <div class="lbl">Moyenne générale / 20</div>
+        </div>
+        <div class="badge good">
+          <div class="val">${topGrade || '—'}</div>
+          <div class="lbl">Meilleure note</div>
+        </div>
+        <div class="badge">
+          <div class="val">${avg(grades, 'revision_score') || '—'}</div>
+          <div class="lbl">Moy. Révision</div>
+        </div>
+        <div class="badge">
+          <div class="val">${avg(grades, 'recitation_score') || '—'}</div>
+          <div class="lbl">Moy. Récitation</div>
+        </div>
+      `;
+
+      // ── Grades table
+      const container = document.getElementById('grades-container');
+      if (!grades.length) {
+        container.innerHTML = `<div class="no-grades">Aucune séance enregistrée pour cet étudiant.</div>`;
+      } else {
+        const avgRow = `
+          <tr class="avg-row">
+            <td>📊 Moyenne</td>
+            <td>${avg(grades,'revision_score') || '—'}</td>
+            <td>${avg(grades,'recitation_score') || '—'}</td>
+            <td>${avg(grades,'preparation_score') || '—'}</td>
+            <td>${avg(grades,'arabe_score') || '—'}</td>
+            <td>${avg(grades,'tarbiya_score') || '—'}</td>
+            <td>${avg(grades,'devoir_score') || '—'}</td>
+            <td>—</td>
+            <td class="${gradeClass(avg(grades,'final_grade'))}">${avg(grades,'final_grade') || '—'}</td>
+          </tr>`;
+        container.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>مراجعة<br><small>Révision</small></th>
+                <th>استظهار<br><small>Récitation</small></th>
+                <th>إعداد<br><small>Préparation</small></th>
+                <th>عربية<br><small>Arabe</small></th>
+                <th>تربية<br><small>Tarbiya</small></th>
+                <th>فرض<br><small>Devoir</small></th>
+                <th>ملاحظات<br><small>Remarque</small></th>
+                <th>النهائية<br><small>Note finale</small></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${grades.map(g => `
+                <tr>
+                  <td>${fmt(g.session_date || g.created_at)}</td>
+                  <td class="${gradeColorClass(g.revision_score)}">${g.revision_score ?? '—'}</td>
+                  <td class="${gradeColorClass(g.recitation_score)}">${g.recitation_score ?? '—'}</td>
+                  <td class="${gradeColorClass(g.preparation_score)}">${g.preparation_score ?? '—'}</td>
+                  <td class="${gradeColorClass(g.arabe_score)}">${g.arabe_score ?? '—'}</td>
+                  <td class="${gradeColorClass(g.tarbiya_score)}">${g.tarbiya_score ?? '—'}</td>
+                  <td class="${gradeColorClass(g.devoir_score)}">${g.devoir_score ?? '—'}</td>
+                  <td style="font-size:.78rem;color:var(--muted);max-width:160px">${g.remarque || '—'}</td>
+                  <td class="grade-cell ${gradeClass(g.final_grade)}">${g.final_grade ?? '—'}</td>
+                </tr>`).join('')}
+              ${avgRow}
+            </tbody>
+          </table>`;
+      }
+
+      // footer date
+      document.getElementById('footer-date').textContent =
+        `Généré le ${new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}`;
+
+      // show report
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('report').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = '❌ ' + err.message;
+    }
+  }
+
+  load();
+</script>
+</body>
+</html>

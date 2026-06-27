@@ -438,6 +438,39 @@ app.get('/admin/stats', requireAdmin, async (req, res) => {
     });
 });
 
+// ── Public student report ────────────────────────────────────────────────────
+
+app.get('/report/:id', (req, res) => res.sendFile(join(__dirname, 'report.html')));
+
+app.get('/api/report/:id', async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    try {
+        const [studentRes, gradesRes] = await Promise.all([
+            pool.query(
+                `SELECT s.id, s.full_name, s.teacher_name, s.phone, s.email, s.enrolled_at,
+                        c.name_fr AS course_fr, c.name_ar AS course_ar
+                 FROM students s
+                 LEFT JOIN courses c ON c.id = s.course_id
+                 WHERE s.id = $1`, [id]
+            ),
+            pool.query(
+                `SELECT session_date, created_at,
+                        revision_score, recitation_score, preparation_score,
+                        arabe_score, tarbiya_score, devoir_score, remarque, final_grade
+                 FROM session_grades
+                 WHERE student_name = (SELECT full_name FROM students WHERE id = $1)
+                 ORDER BY COALESCE(session_date::date, created_at::date) DESC`, [id]
+            )
+        ]);
+        if (!studentRes.rows.length) return res.status(404).json({ error: 'Student not found' });
+        res.json({ student: studentRes.rows[0], grades: gradesRes.rows });
+    } catch (err) {
+        console.error('/api/report error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Serve static files (must be last) ────────────────────────────────────────
 
 app.get('/admin', (req, res) => res.sendFile(join(__dirname, 'admin.html')));
