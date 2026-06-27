@@ -144,6 +144,17 @@
 
   .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .95rem; }
 
+  /* ── Card header row ── */
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .card-header h2 { margin-bottom: 0; }
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; background: #edf2f7; color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px;
+    font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .btn-export:hover { background: var(--border); }
+
   /* ── Stats ── */
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; margin-bottom: 24px; }
   .stat-card {
@@ -207,7 +218,10 @@
         </div>
       </div>
       <div class="card">
-        <h2>Enseignants enregistrés</h2>
+        <div class="card-header">
+          <h2>Enseignants enregistrés</h2>
+          <button class="btn-export" onclick="exportCSV(cachedTeachers, ['name','email','created_at'], 'enseignants')">⬇ Exporter CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Ajouté le</th><th>Action</th></tr></thead>
@@ -235,7 +249,10 @@
         </div>
       </div>
       <div class="card">
-        <h2>Liste des étudiants</h2>
+        <div class="card-header">
+          <h2>Liste des étudiants</h2>
+          <button class="btn-export" onclick="exportCSV(cachedStudents, ['full_name','teacher_name','course_name','phone','email','enrolled_at'], 'etudiants')">⬇ Exporter CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Nom</th><th>Enseignant</th><th>Cours</th><th>Téléphone</th><th>Action</th></tr></thead>
@@ -295,7 +312,10 @@
     <!-- REGISTRATIONS -->
     <div class="tab-panel" id="tab-registrations">
       <div class="card">
-        <h2>Demandes d'inscription</h2>
+        <div class="card-header">
+          <h2>Demandes d'inscription</h2>
+          <button class="btn-export" onclick="exportCSV(cachedRegistrations, ['full_name','phone','course_name','status','submitted_at','message'], 'inscriptions')">⬇ Exporter CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Nom</th><th>Téléphone</th><th>Cours</th><th>Statut</th><th>Date</th><th>Action</th></tr></thead>
@@ -308,7 +328,10 @@
     <!-- GRADES -->
     <div class="tab-panel" id="tab-grades">
       <div class="card">
-        <h2>Historique des notes (200 dernières sessions)</h2>
+        <div class="card-header">
+          <h2>Historique des notes (200 dernières sessions)</h2>
+          <button class="btn-export" onclick="exportCSV(cachedGrades, ['session_date','teacher_name','student_name','revision_score','recitation_score','preparation_score','arabe_score','tarbiya_score','devoir_score','remarque','final_grade'], 'notes')">⬇ Exporter CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -376,6 +399,32 @@
 
 <script>
   let TOKEN = localStorage.getItem('admin_token') || '';
+
+  // ── CSV export cache ──────────────────────────────────────────────────────
+  let cachedTeachers      = [];
+  let cachedStudents      = [];
+  let cachedRegistrations = [];
+  let cachedGrades        = [];
+
+  function exportCSV(data, fields, filename) {
+    if (!data || !data.length) return toast('Aucune donnée à exporter.', false);
+    const header = fields.join(',');
+    const rows = data.map(row =>
+      fields.map(f => {
+        const val = row[f] == null ? '' : String(row[f]);
+        return '"' + val.replace(/"/g, '""') + '"';
+      }).join(',')
+    );
+    const csv = [header, ...rows].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Fichier CSV téléchargé ✓');
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -477,6 +526,7 @@
 
   async function loadTeachers() {
     const rows = await api('GET', '/admin/teachers');
+    cachedTeachers = rows;
     const tbody = document.getElementById('teachers-tbody');
     if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Aucun enseignant.</td></tr>`; return; }
     tbody.innerHTML = rows.map((r, i) => `
@@ -519,6 +569,7 @@
       api('GET', '/admin/teachers'),
       api('GET', '/admin/courses')
     ]);
+    cachedStudents = rows;
     const tSel = document.getElementById('s-teacher');
     const cSel = document.getElementById('s-course');
     tSel.innerHTML = '<option value="">— Choisir —</option>' +
@@ -656,6 +707,7 @@
 
   async function loadRegistrations() {
     const rows = await api('GET', '/admin/registrations');
+    cachedRegistrations = rows;
     const tbody = document.getElementById('registrations-tbody');
     if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Aucune inscription.</td></tr>`; return; }
     tbody.innerHTML = rows.map((r, i) => {
@@ -777,6 +829,7 @@
 
   async function loadGrades() {
     const rows = await api('GET', '/admin/grades');
+    cachedGrades = rows;
     const tbody = document.getElementById('grades-tbody');
     if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Aucune note enregistrée.</td></tr>`; return; }
     tbody.innerHTML = rows.map(r => `
