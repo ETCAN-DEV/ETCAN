@@ -144,6 +144,24 @@
 
   .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .95rem; }
 
+  /* ── Search / filter bar ── */
+  .filter-bar {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 12px 0 18px;
+  }
+  .filter-bar input[type="search"], .filter-bar select {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: .9rem; outline: none; min-width: 180px; background: white;
+  }
+  .filter-bar input[type="search"]:focus, .filter-bar select:focus { border-color: var(--primary); }
+  .filter-bar .filter-count { font-size: .82rem; color: var(--muted); margin-left: auto; }
+  .filter-bar button.clear-btn {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: .82rem; padding: 4px 6px; border-radius: 5px;
+  }
+  .filter-bar button.clear-btn:hover { background: var(--border); color: var(--text); }
+  tr.hidden { display: none; }
+
   /* ── Card header row ── */
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
   .card-header h2 { margin-bottom: 0; }
@@ -253,6 +271,14 @@
           <h2>Liste des étudiants</h2>
           <button class="btn-export" onclick="exportCSV(cachedStudents, ['full_name','teacher_name','course_name','phone','email','enrolled_at'], 'etudiants')">⬇ Exporter CSV</button>
         </div>
+        <div class="filter-bar">
+          <input type="search" id="students-search" placeholder="🔍 Rechercher par nom…" oninput="filterStudents()" />
+          <select id="students-filter-teacher" onchange="filterStudents()">
+            <option value="">Tous les enseignants</option>
+          </select>
+          <button class="clear-btn" onclick="clearStudentFilters()">✕ Effacer</button>
+          <span class="filter-count" id="students-count"></span>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Nom</th><th>Enseignant</th><th>Cours</th><th>Téléphone</th><th>Action</th></tr></thead>
@@ -331,6 +357,14 @@
         <div class="card-header">
           <h2>Historique des notes (200 dernières sessions)</h2>
           <button class="btn-export" onclick="exportCSV(cachedGrades, ['session_date','teacher_name','student_name','revision_score','recitation_score','preparation_score','arabe_score','tarbiya_score','devoir_score','remarque','final_grade'], 'notes')">⬇ Exporter CSV</button>
+        </div>
+        <div class="filter-bar">
+          <input type="search" id="grades-search" placeholder="🔍 Rechercher par étudiant…" oninput="filterGrades()" />
+          <select id="grades-filter-teacher" onchange="filterGrades()">
+            <option value="">Tous les enseignants</option>
+          </select>
+          <button class="clear-btn" onclick="clearGradeFilters()">✕ Effacer</button>
+          <span class="filter-count" id="grades-count"></span>
         </div>
         <div class="table-wrap">
           <table>
@@ -577,10 +611,18 @@
     cSel.innerHTML = '<option value="">— Choisir —</option>' +
       courses.map(c => `<option value="${c.id}">${c.name_fr}</option>`).join('');
 
+    // populate teacher filter dropdown
+    const teacherNames = [...new Set(rows.map(r => r.teacher_name).filter(Boolean))].sort();
+    const sfSel = document.getElementById('students-filter-teacher');
+    const prevSfVal = sfSel.value;
+    sfSel.innerHTML = '<option value="">Tous les enseignants</option>' +
+      teacherNames.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (prevSfVal) sfSel.value = prevSfVal;
+
     const tbody = document.getElementById('students-tbody');
-    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun étudiant.</td></tr>`; return; }
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun étudiant.</td></tr>`; updateStudentCount(); return; }
     tbody.innerHTML = rows.map((r, i) => `
-      <tr>
+      <tr data-name="${(r.full_name || '').toLowerCase()}" data-teacher="${(r.teacher_name || '').toLowerCase()}">
         <td>${i + 1}</td>
         <td><strong>${r.full_name}</strong></td>
         <td>${r.teacher_name || '—'}</td>
@@ -590,6 +632,7 @@
           <button class="btn btn-danger" onclick="deleteStudent(${r.id})">Supprimer</button>
         </div></td>
       </tr>`).join('');
+    updateStudentCount();
   }
 
   async function addStudent() {
@@ -830,10 +873,18 @@
   async function loadGrades() {
     const rows = await api('GET', '/admin/grades');
     cachedGrades = rows;
+    // populate teacher filter dropdown
+    const gTeacherNames = [...new Set(rows.map(r => r.teacher_name).filter(Boolean))].sort();
+    const gfSel = document.getElementById('grades-filter-teacher');
+    const prevGfVal = gfSel.value;
+    gfSel.innerHTML = '<option value="">Tous les enseignants</option>' +
+      gTeacherNames.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (prevGfVal) gfSel.value = prevGfVal;
+
     const tbody = document.getElementById('grades-tbody');
-    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Aucune note enregistrée.</td></tr>`; return; }
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Aucune note enregistrée.</td></tr>`; updateGradeCount(); return; }
     tbody.innerHTML = rows.map(r => `
-      <tr>
+      <tr data-name="${(r.student_name || '').toLowerCase()}" data-teacher="${(r.teacher_name || '').toLowerCase()}">
         <td>${r.session_date || fmt(r.created_at)}</td>
         <td>${r.teacher_name}</td>
         <td><strong>${r.student_name}</strong></td>
@@ -846,6 +897,60 @@
         <td>${truncate(r.remarque, 40)}</td>
         <td><strong>${r.final_grade || '—'}</strong></td>
       </tr>`).join('');
+    updateGradeCount();
+  }
+  // ── Student filtering ─────────────────────────────────────────────────────
+
+  function filterStudents() {
+    const q       = (document.getElementById('students-search').value || '').toLowerCase().trim();
+    const teacher = (document.getElementById('students-filter-teacher').value || '').toLowerCase();
+    const rows    = document.querySelectorAll('#students-tbody tr[data-name]');
+    rows.forEach(row => {
+      const nameMatch    = !q       || row.dataset.name.includes(q);
+      const teacherMatch = !teacher || row.dataset.teacher === teacher;
+      row.classList.toggle('hidden', !(nameMatch && teacherMatch));
+    });
+    updateStudentCount();
+  }
+
+  function updateStudentCount() {
+    const all     = document.querySelectorAll('#students-tbody tr[data-name]');
+    const visible = document.querySelectorAll('#students-tbody tr[data-name]:not(.hidden)');
+    const el = document.getElementById('students-count');
+    if (el) el.textContent = all.length ? `${visible.length} / ${all.length} étudiants` : '';
+  }
+
+  function clearStudentFilters() {
+    document.getElementById('students-search').value = '';
+    document.getElementById('students-filter-teacher').value = '';
+    filterStudents();
+  }
+
+  // ── Grade filtering ───────────────────────────────────────────────────────
+
+  function filterGrades() {
+    const q       = (document.getElementById('grades-search').value || '').toLowerCase().trim();
+    const teacher = (document.getElementById('grades-filter-teacher').value || '').toLowerCase();
+    const rows    = document.querySelectorAll('#grades-tbody tr[data-name]');
+    rows.forEach(row => {
+      const nameMatch    = !q       || row.dataset.name.includes(q);
+      const teacherMatch = !teacher || row.dataset.teacher === teacher;
+      row.classList.toggle('hidden', !(nameMatch && teacherMatch));
+    });
+    updateGradeCount();
+  }
+
+  function updateGradeCount() {
+    const all     = document.querySelectorAll('#grades-tbody tr[data-name]');
+    const visible = document.querySelectorAll('#grades-tbody tr[data-name]:not(.hidden)');
+    const el = document.getElementById('grades-count');
+    if (el) el.textContent = all.length ? `${visible.length} / ${all.length} sessions` : '';
+  }
+
+  function clearGradeFilters() {
+    document.getElementById('grades-search').value = '';
+    document.getElementById('grades-filter-teacher').value = '';
+    filterGrades();
   }
 </script>
 </body>
