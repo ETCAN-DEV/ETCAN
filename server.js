@@ -372,6 +372,7 @@ app.get('/admin/grades', requireAdmin, async (req, res) => {
 
 // ── Serve static files (must be last) ────────────────────────────────────────
 
+app.get('/admin', (req, res) => res.sendFile(join(__dirname, 'admin.html')));
 app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 5000;
