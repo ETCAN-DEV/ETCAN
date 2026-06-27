@@ -1,5 +1,5 @@
     
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuuoBRCLjQsh_XEI3hyxRLMsmzeLE1dkzTn0vF8RgiMxPktswH-sFdW2ReI8VWW34-yQ/exec";
+    const SCRIPT_URL = "/api";
 
 
     const lang = localStorage.getItem('currentLang') || 'fr';
@@ -77,7 +77,7 @@ function closeMenu(pageId) {
         localStorage.setItem('selectedLang', window.currentLang);
         applyTranslations(window.currentLang);
     }
-	
+        
 // 1. التهيئة عند التحميل
 
 // نستخدم load بدلاً من DOMContentLoaded لضمان تحميل الصور والعناصر الخارجية
@@ -420,20 +420,18 @@ function fetchAndDisplayNews() {
         }
     }
 
-    // التبديل الديناميكي بين الاتصال أونلاين وبين النسخة الاحتياطية
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-          .withSuccessHandler(function(newsList) {
-              renderNews(newsList);
-          })
-          .withFailureHandler(function(err) {
-              console.error("فشل الاتصال بجدول البيانات للخبر، استخدام المحلي: ", err);
-              renderNews(fallbackNews);
-          })
-          .getNewsFromSheet();
-    } else {
-        renderNews(fallbackNews);
-    }
+    fetch('/api?action=getNews')
+        .then(res => res.json())
+        .then(newsList => {
+            if (newsList && newsList.length > 0) {
+                renderNews(newsList);
+            } else {
+                renderNews(fallbackNews);
+            }
+        })
+        .catch(() => {
+            renderNews(fallbackNews);
+        });
 }
 // ==========================================
 // 5. معالجة النماذج (الاتصال والتسجيل والطلاب)
@@ -860,7 +858,7 @@ function clearDashboardForm() {
     defaults.forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "---"; });
     
     document.getElementById('studentArchiveTableBody').innerHTML = `<tr><td colspan="8" style="border: 1px solid #cbd5e1; padding: 15px; color: #64748b;">يرجى اختيار تلميذ لعرض شريط الأرشيف الخاص به هنا...</td></tr>`;
-}	
+}       
 
 document.addEventListener('click', function(e) {
     if (e.target && e.target.id === 'logoutBtn') {
