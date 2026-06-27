@@ -356,7 +356,7 @@
       <div class="card">
         <div class="card-header">
           <h2>Historique des notes (200 dernières sessions)</h2>
-          <button class="btn-export" onclick="exportCSV(cachedGrades, ['session_date','teacher_name','student_name','revision_score','recitation_score','preparation_score','arabe_score','tarbiya_score','devoir_score','remarque','final_grade'], 'notes')">⬇ Exporter CSV</button>
+          <button class="btn-export" onclick="exportCSV(cachedGrades, ['session_date','attendance','teacher_name','student_name','revision_score','recitation_score','preparation_score','arabe_score','tarbiya_score','devoir_score','remarque','final_grade'], 'notes')">⬇ Exporter CSV</button>
         </div>
         <div class="filter-bar">
           <input type="search" id="grades-search" placeholder="🔍 Rechercher par étudiant…" oninput="filterGrades()" />
@@ -370,7 +370,7 @@
           <table>
             <thead>
               <tr>
-                <th>Date</th><th>Enseignant</th><th>Étudiant</th>
+                <th>Date</th><th>Présence</th><th>Enseignant</th><th>Étudiant</th>
                 <th>Révis.</th><th>Récit.</th><th>Prép.</th><th>Arabe</th><th>Tarbiya</th><th>Devoir</th><th>Remarque</th><th>Note finale</th>
               </tr>
             </thead>
@@ -439,6 +439,13 @@
   let cachedStudents      = [];
   let cachedRegistrations = [];
   let cachedGrades        = [];
+
+  function attendanceBadge(val) {
+    if (!val || val === 'present') return '<span style="color:#2e7d32;font-weight:600;font-size:.8rem">✔ Présent</span>';
+    if (val === 'absent') return '<span style="color:#c62828;font-weight:600;font-size:.8rem">✘ Absent</span>';
+    if (val === 'late')   return '<span style="color:#e65100;font-weight:600;font-size:.8rem">⏱ Retard</span>';
+    return val;
+  }
 
   function exportCSV(data, fields, filename) {
     if (!data || !data.length) return toast('Aucune donnée à exporter.', false);
@@ -883,10 +890,11 @@
     if (prevGfVal) gfSel.value = prevGfVal;
 
     const tbody = document.getElementById('grades-tbody');
-    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Aucune note enregistrée.</td></tr>`; updateGradeCount(); return; }
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="12" class="empty-state">Aucune note enregistrée.</td></tr>`; updateGradeCount(); return; }
     tbody.innerHTML = rows.map(r => `
       <tr data-name="${(r.student_name || '').toLowerCase()}" data-teacher="${(r.teacher_name || '').toLowerCase()}">
         <td>${r.session_date || fmt(r.created_at)}</td>
+        <td>${attendanceBadge(r.attendance)}</td>
         <td>${r.teacher_name}</td>
         <td><strong>${r.student_name}</strong></td>
         <td>${r.revision_score    || '—'}</td>

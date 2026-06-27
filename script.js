@@ -813,6 +813,7 @@ function saveFromWeb() {
         arabe: { text: document.getElementById('input_arabe').value, score: document.getElementById('score_arabe').value },
         tarbiya: { text: document.getElementById('input_tarbiya').value, score: document.getElementById('score_tarbiya').value },
         devoir: { text: document.getElementById('input_devoir').value, score: document.getElementById('score_devoir').value },
+        attendance: document.getElementById('input_attendance') ? document.getElementById('input_attendance').value : 'present',
         remarque: document.getElementById('input_remarque').value,
         finalGrade: document.getElementById('input_grade').value
     };
@@ -846,6 +847,8 @@ function clearDashboardForm() {
     document.getElementById('input_devoir').value = "";
     document.getElementById('input_remarque').value = "";
     document.getElementById('input_grade').value = "";
+    const attEl = document.getElementById('input_attendance');
+    if (attEl) attEl.value = 'present';
 
     document.getElementById('score_revision').value = "";
     document.getElementById('score_recitation').value = "";

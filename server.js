@@ -150,32 +150,33 @@ app.post('/api', async (req, res) => {
                     tarbiya:     r.tarbiya_score,
                     devoir:      r.devoir_score,
                     remarque:    r.remarque,
-                    grade:       r.final_grade
+                    grade:       r.final_grade,
+                    attendance:  r.attendance
                 }))
             });
         }
 
         if (action === 'saveDashboardScores') {
-            const { teacher, student, date, startTime, revision, recitation, preparation, arabe, tarbiya, devoir, remarque, finalGrade } = body;
+            const { teacher, student, date, startTime, revision, recitation, preparation, arabe, tarbiya, devoir, remarque, finalGrade, attendance } = body;
             await pool.query(
                 `INSERT INTO session_grades
                  (teacher_name, student_name, session_date, start_time,
                   revision_text, revision_score, recitation_text, recitation_score,
                   preparation_text, preparation_score, arabe_text, arabe_score,
                   tarbiya_text, tarbiya_score, devoir_text, devoir_score,
-                  remarque, final_grade)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+                  remarque, final_grade, attendance)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
                 [teacher, student, date, startTime,
                  revision?.text, revision?.score, recitation?.text, recitation?.score,
                  preparation?.text, preparation?.score, arabe?.text, arabe?.score,
                  tarbiya?.text, tarbiya?.score, devoir?.text, devoir?.score,
-                 remarque, finalGrade]
+                 remarque, finalGrade, attendance || 'present']
             );
             return res.json({ status: 'success' });
         }
 
         if (action === 'saveTeacherRatings') {
-            const { name: student, ratings, teacher } = body;
+            const { name: student, ratings, teacher, attendance } = body;
             const fieldMap = {
                 'مراجعة': 'revision_score', 'استظهار': 'recitation_score',
                 'إعداد': 'preparation_score', 'اللغة العربية': 'arabe_score',
@@ -187,12 +188,12 @@ app.post('/api', async (req, res) => {
             await pool.query(
                 `INSERT INTO session_grades
                  (teacher_name, student_name, revision_score, recitation_score, preparation_score,
-                  arabe_score, tarbiya_score, devoir_score, remarque, final_grade)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                  arabe_score, tarbiya_score, devoir_score, remarque, final_grade, attendance)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
                 [teacher || 'unknown', student,
                  vals.revision_score, vals.recitation_score, vals.preparation_score,
                  vals.arabe_score, vals.tarbiya_score, vals.devoir_score,
-                 vals.remarque, vals.final_grade]
+                 vals.remarque, vals.final_grade, attendance || 'present']
             );
             return res.json({ success: true });
         }
@@ -457,7 +458,8 @@ app.get('/api/report/:id', async (req, res) => {
             pool.query(
                 `SELECT session_date, created_at,
                         revision_score, recitation_score, preparation_score,
-                        arabe_score, tarbiya_score, devoir_score, remarque, final_grade
+                        arabe_score, tarbiya_score, devoir_score, remarque, final_grade,
+                        attendance
                  FROM session_grades
                  WHERE student_name = (SELECT full_name FROM students WHERE id = $1)
                  ORDER BY COALESCE(session_date::date, created_at::date) DESC`, [id]

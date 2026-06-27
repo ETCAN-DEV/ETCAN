@@ -240,6 +240,13 @@
 <script>
   const id = location.pathname.split('/').pop();
 
+  function attLabel(val) {
+    if (!val || val === 'present') return '<span style="color:#2e7d32;font-weight:600">✔ حاضر</span>';
+    if (val === 'absent')          return '<span style="color:#c62828;font-weight:600">✘ غائب</span>';
+    if (val === 'late')            return '<span style="color:#e65100;font-weight:600">⏱ متأخر</span>';
+    return val;
+  }
+
   function gradeClass(v) {
     if (!v && v !== 0) return '';
     const n = parseFloat(v);
@@ -352,6 +359,7 @@
         const avgRow = `
           <tr class="avg-row">
             <td>📊 Moyenne</td>
+            <td>—</td>
             <td>${avg(grades,'revision_score') || '—'}</td>
             <td>${avg(grades,'recitation_score') || '—'}</td>
             <td>${avg(grades,'preparation_score') || '—'}</td>
@@ -366,6 +374,7 @@
             <thead>
               <tr>
                 <th>Date</th>
+                <th>الحضور<br><small>Présence</small></th>
                 <th>مراجعة<br><small>Révision</small></th>
                 <th>استظهار<br><small>Récitation</small></th>
                 <th>إعداد<br><small>Préparation</small></th>
@@ -380,6 +389,7 @@
               ${grades.map(g => `
                 <tr>
                   <td>${fmt(g.session_date || g.created_at)}</td>
+                  <td>${attLabel(g.attendance)}</td>
                   <td class="${gradeColorClass(g.revision_score)}">${g.revision_score ?? '—'}</td>
                   <td class="${gradeColorClass(g.recitation_score)}">${g.recitation_score ?? '—'}</td>
                   <td class="${gradeColorClass(g.preparation_score)}">${g.preparation_score ?? '—'}</td>

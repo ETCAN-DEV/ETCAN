@@ -84,7 +84,7 @@
 
                 <div class="card" style="border-inline-start: 5px solid #2b6cb0; background: #ebf8ff; padding: 20px; text-align: start;">
                     <h3 style="color: #2b6cb0; margin-bottom: 12px;"><i class="fas fa-clock"></i> <span data-i18n="studySystem">نظام الدراسة</span></h3>
-					 <ul style="list-style: none; padding: 0; line-height: 2; text-align: start;">
+                                         <ul style="list-style: none; padding: 0; line-height: 2; text-align: start;">
                         <li data-i18n="quranSystem1">• .</li>
                         <li data-i18n="quranSystem2">• .</li>
                         <li data-i18n="quranSystem3">• .</li>
@@ -342,8 +342,8 @@
     </div>
     <!-- END HOME PAGE -->
 
-	<!-- START LOGIN -->
-	<section id="auth-page" class="page" style="display:none; padding: 40px 20px; text-align: center;">
+        <!-- START LOGIN -->
+        <section id="auth-page" class="page" style="display:none; padding: 40px 20px; text-align: center;">
     <div class="auth-container" style="max-width: 400px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         
         <h2 id="authTitle">تسجيل الدخول إلى أكاديمية إتقان</h2>
@@ -362,8 +362,8 @@
         </div>
     </div>
 </section>
-			</section>
-	<!-- END LOGIN-->
+                        </section>
+        <!-- END LOGIN-->
 
     <!-- START REGISTER PAGE -->
     <div id="register-page" class="page-content">
@@ -438,8 +438,8 @@
                 <h2 data-i18n="navLogin" style="color: var(--dark); margin: 0; font-size: 24px;">دخول المسجلين</h2>
             </div>
 
-			<form onsubmit="return handleUnifiedLogin(event)">       
-			<div style="margin-bottom: 20px;">
+                        <form onsubmit="return handleUnifiedLogin(event)">       
+                        <div style="margin-bottom: 20px;">
                     <label data-i18n="regLabelName" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--dark);">الاسم الكامل</label>
                     <div style="display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 8px; background: white; padding: 2px 8px;">
                         <i class="fas fa-user" style="color: #94a3b8; padding: 0 8px;"></i>
@@ -464,9 +464,9 @@
                     دخول
                 </button>
             </form> 
-		</div>
+                </div>
     </div>
-	<div id="teacher-dashboard" class="page-content" style="display: none; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fcf8f2; direction: rtl; max-width: 1200px; margin: 0 auto;">
+        <div id="teacher-dashboard" class="page-content" style="display: none; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fcf8f2; direction: rtl; max-width: 1200px; margin: 0 auto;">
     
     <div style="background: #fffcf5; border: 2px solid #ffe8be; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
         <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;">
@@ -570,6 +570,20 @@
                     <td style="border: 1px solid #cbd5e1; padding: 8px; background: #e2e8f0;" id="today_devoir">-</td>
                     <td style="border: 1px solid #cbd5e1; padding: 8px; background: #f1f5f9;" id="prev_devoir">---</td>
                 </tr>
+                <tr style="background: #e8f5e9;" data-activity="attendance">
+                    <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600; text-align: right; color: #1b5e20;">الحضور :</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 4px;">---</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 4px;">
+                        <select id="input_attendance" style="width:94%; padding:6px; border:1px solid #e2e8f0; border-radius:4px; outline:none; background:white;">
+                            <option value="present">✔ حاضر / Présent</option>
+                            <option value="late">⏱ متأخر / Retard</option>
+                            <option value="absent">✘ غائب / Absent</option>
+                        </select>
+                    </td>
+                    <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold;" class="time-col">-</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 8px; background: #e2e8f0;" id="today_attendance">-</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 8px; background: #f1f5f9;" id="prev_attendance">---</td>
+                </tr>
                 <tr style="background: #fff5f5;" data-activity="remarque">
                     <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600; text-align: right;">Remarque :</td>
                     <td style="border: 1px solid #cbd5e1; padding: 4px;">---</td>
@@ -616,7 +630,7 @@
         </div>
     </div>
 
-</div>	
+</div>  
     <!-- END TEACHER LOGIN -->
 
     <!-- FOOTER PANEL -->
