@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Académie ETCAN</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1a365d;
+    --accent:  #f6ad55;
+    --danger:  #e53e3e;
+    --success: #38a169;
+    --bg:      #f7fafc;
+    --card:    #ffffff;
+    --border:  #e2e8f0;
+    --text:    #2d3748;
+    --muted:   #718096;
+  }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+  /* ── Login overlay ── */
+  #login-overlay {
+    position: fixed; inset: 0; background: var(--primary);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  #login-overlay.hidden { display: none; }
+  .login-box {
+    background: white; border-radius: 16px; padding: 40px;
+    width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .login-box h1 { color: var(--primary); font-size: 1.4rem; margin-bottom: 6px; }
+  .login-box p  { color: var(--muted); font-size: .9rem; margin-bottom: 24px; }
+  .login-box input {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 1rem; margin-bottom: 14px; outline: none;
+  }
+  .login-box input:focus { border-color: var(--primary); }
+  .login-box button {
+    width: 100%; padding: 12px; background: var(--primary); color: white;
+    border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 600;
+  }
+  .login-box button:hover { opacity: .9; }
+  #login-error { color: var(--danger); font-size: .85rem; margin-top: 10px; display: none; }
+
+  /* ── App shell ── */
+  #app { display: none; min-height: 100vh; }
+  #app.visible { display: flex; flex-direction: column; }
+
+  header {
+    background: var(--primary); color: white;
+    padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header .brand { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+  header .brand span { background: var(--accent); color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: .75rem; font-weight: 800; }
+  header button.logout-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,.4); color: white;
+    padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: .85rem;
+  }
+  header button.logout-btn:hover { background: rgba(255,255,255,.1); }
+
+  nav {
+    background: white; border-bottom: 1px solid var(--border);
+    display: flex; gap: 4px; padding: 0 24px; overflow-x: auto;
+  }
+  nav button {
+    padding: 14px 18px; background: none; border: none; cursor: pointer;
+    font-size: .9rem; color: var(--muted); border-bottom: 3px solid transparent;
+    white-space: nowrap; font-weight: 500; transition: all .15s;
+  }
+  nav button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 700; }
+  nav button:hover:not(.active) { color: var(--text); background: var(--bg); }
+
+  main { flex: 1; padding: 28px 24px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Cards & Forms ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 24px;
+  }
+  .card h2 { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 18px; }
+
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .form-row .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 160px; }
+  .form-row label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .form-row input, .form-row select {
+    padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: .95rem; outline: none; width: 100%;
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--primary); }
+  .form-row textarea {
+    padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: .95rem; outline: none; width: 100%; min-height: 80px; resize: vertical;
+  }
+  .form-row textarea:focus { border-color: var(--primary); }
+
+  .btn {
+    padding: 9px 20px; border: none; border-radius: 8px; cursor: pointer;
+    font-size: .9rem; font-weight: 600; transition: opacity .15s; white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-danger  { background: var(--danger);  color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-ghost   { background: var(--border);  color: var(--text); }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  thead th {
+    background: var(--bg); padding: 10px 14px; text-align: left;
+    font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  tbody td { padding: 11px 14px; vertical-align: middle; }
+  tbody td .actions { display: flex; gap: 6px; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 20px;
+    font-size: .75rem; font-weight: 700;
+  }
+  .badge-green  { background: #c6f6d5; color: #276749; }
+  .badge-yellow { background: #fefcbf; color: #744210; }
+  .badge-red    { background: #fed7d7; color: #742a2a; }
+  .badge-gray   { background: #edf2f7; color: #4a5568; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: #2d3748; color: white;
+    padding: 12px 20px; border-radius: 10px; font-size: .9rem; opacity: 0;
+    transition: opacity .3s; pointer-events: none; z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .95rem; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>🎓 Académie ETCAN</h1>
+    <p>Panneau d'administration</p>
+    <input type="password" id="admin-password" placeholder="Mot de passe admin" />
+    <button onclick="doLogin()">Se connecter</button>
+    <div id="login-error">Mot de passe incorrect.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="brand">Académie ETCAN <span>ADMIN</span></div>
+    <button class="logout-btn" onclick="doLogout()">Déconnexion</button>
+  </header>
+
+  <nav>
+    <button class="active" onclick="switchTab('teachers', this)">👤 Enseignants</button>
+    <button onclick="switchTab('students',  this)">🎓 Étudiants</button>
+    <button onclick="switchTab('courses',   this)">📚 Cours</button>
+    <button onclick="switchTab('news',      this)">📰 Actualités</button>
+    <button onclick="switchTab('registrations', this)">📋 Inscriptions</button>
+    <button onclick="switchTab('grades',    this)">📊 Notes</button>
+  </nav>
+
+  <main>
+
+    <!-- TEACHERS -->
+    <div class="tab-panel active" id="tab-teachers">
+      <div class="card">
+        <h2>Ajouter un enseignant</h2>
+        <div class="form-row">
+          <div class="field"><label>Nom complet *</label><input id="t-name" placeholder="Ex: Ahmed Bennani" /></div>
+          <div class="field"><label>Email</label><input id="t-email" type="email" placeholder="ahmed@example.com" /></div>
+          <div class="field"><label>Mot de passe *</label><input id="t-pass" type="password" placeholder="••••••••" /></div>
+          <button class="btn btn-primary" style="margin-bottom:1px" onclick="addTeacher()">Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Enseignants enregistrés</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Ajouté le</th><th>Action</th></tr></thead>
+            <tbody id="teachers-tbody"><tr><td colspan="5" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="tab-panel" id="tab-students">
+      <div class="card">
+        <h2>Ajouter un étudiant</h2>
+        <div class="form-row">
+          <div class="field"><label>Nom complet *</label><input id="s-name" placeholder="Ex: Fatima Zahra" /></div>
+          <div class="field"><label>Enseignant assigné</label>
+            <select id="s-teacher"><option value="">— Choisir —</option></select>
+          </div>
+          <div class="field"><label>Cours</label>
+            <select id="s-course"><option value="">— Choisir —</option></select>
+          </div>
+          <div class="field"><label>Téléphone</label><input id="s-phone" placeholder="06xxxxxxxx" /></div>
+          <div class="field"><label>Email</label><input id="s-email" type="email" /></div>
+          <button class="btn btn-primary" style="margin-bottom:1px" onclick="addStudent()">Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Liste des étudiants</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nom</th><th>Enseignant</th><th>Cours</th><th>Téléphone</th><th>Action</th></tr></thead>
+            <tbody id="students-tbody"><tr><td colspan="6" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- COURSES -->
+    <div class="tab-panel" id="tab-courses">
+      <div class="card">
+        <h2>Ajouter un cours</h2>
+        <div class="form-row">
+          <div class="field"><label>Nom (FR) *</label><input id="c-name-fr" placeholder="Mémorisation du Coran" /></div>
+          <div class="field"><label>Nom (AR)</label><input id="c-name-ar" placeholder="حفظ القرآن" dir="rtl" /></div>
+          <div class="field"><label>Catégorie</label><input id="c-cat" placeholder="Coran / Langue / Islam…" /></div>
+          <button class="btn btn-primary" style="margin-bottom:1px" onclick="addCourse()">Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Cours disponibles</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nom (FR)</th><th>Nom (AR)</th><th>Catégorie</th><th>Action</th></tr></thead>
+            <tbody id="courses-tbody"><tr><td colspan="5" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEWS -->
+    <div class="tab-panel" id="tab-news">
+      <div class="card">
+        <h2>Ajouter une actualité</h2>
+        <div class="form-row">
+          <div class="field" style="flex:2"><label>Contenu (FR) *</label>
+            <textarea id="n-content-fr" placeholder="Texte de l'actualité en français…"></textarea>
+          </div>
+          <div class="field" style="flex:2"><label>Contenu (AR)</label>
+            <textarea id="n-content-ar" dir="rtl" placeholder="النص بالعربية…"></textarea>
+          </div>
+          <button class="btn btn-primary" style="margin-bottom:1px;align-self:flex-end" onclick="addNews()">Publier</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Actualités</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Contenu (FR)</th><th>Contenu (AR)</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody id="news-tbody"><tr><td colspan="6" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTRATIONS -->
+    <div class="tab-panel" id="tab-registrations">
+      <div class="card">
+        <h2>Demandes d'inscription</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nom</th><th>Téléphone</th><th>Cours</th><th>Statut</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody id="registrations-tbody"><tr><td colspan="7" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRADES -->
+    <div class="tab-panel" id="tab-grades">
+      <div class="card">
+        <h2>Historique des notes (200 dernières sessions)</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th><th>Enseignant</th><th>Étudiant</th>
+                <th>Révis.</th><th>Récit.</th><th>Prép.</th><th>Arabe</th><th>Tarbiya</th><th>Devoir</th><th>Remarque</th><th>Note finale</th>
+              </tr>
+            </thead>
+            <tbody id="grades-tbody"><tr><td colspan="11" class="empty-state">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let TOKEN = localStorage.getItem('admin_token') || '';
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  (async function init() {
+    if (!TOKEN) return;
+    const ok = await api('GET', '/admin/teachers').then(() => true).catch(() => false);
+    if (ok) showApp();
+    else { TOKEN = ''; localStorage.removeItem('admin_token'); }
+  })();
+
+  function showApp() {
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('app').classList.add('visible');
+    loadTab('teachers');
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  async function doLogin() {
+    const pw = document.getElementById('admin-password').value;
+    try {
+      const data = await fetch('/admin/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      }).then(r => r.json());
+      if (data.token) {
+        TOKEN = data.token;
+        localStorage.setItem('admin_token', TOKEN);
+        document.getElementById('login-error').style.display = 'none';
+        showApp();
+      } else {
+        document.getElementById('login-error').style.display = 'block';
+      }
+    } catch { document.getElementById('login-error').style.display = 'block'; }
+  }
+
+  document.getElementById('admin-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogout() {
+    await api('POST', '/admin/logout').catch(() => {});
+    TOKEN = ''; localStorage.removeItem('admin_token');
+    location.reload();
+  }
+
+  // ── API helper ────────────────────────────────────────────────────────────
+
+  async function api(method, path, body) {
+    const opts = {
+      method,
+      headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  function toast(msg, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show';
+    el.style.background = ok ? '#2d3748' : '#e53e3e';
+    setTimeout(() => el.className = '', 3000);
+  }
+
+  function fmt(date) {
+    return date ? new Date(date).toLocaleDateString('fr-FR') : '—';
+  }
+
+  function truncate(str, n = 60) {
+    if (!str) return '—';
+    return str.length > n ? str.slice(0, n) + '…' : str;
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+
+  const tabLoaded = {};
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+    loadTab(name);
+  }
+
+  function loadTab(name) {
+    if (name === 'teachers')      loadTeachers();
+    if (name === 'students')      loadStudents();
+    if (name === 'courses')       loadCourses();
+    if (name === 'news')          loadNews();
+    if (name === 'registrations') loadRegistrations();
+    if (name === 'grades')        loadGrades();
+  }
+
+  // ── Teachers ──────────────────────────────────────────────────────────────
+
+  async function loadTeachers() {
+    const rows = await api('GET', '/admin/teachers');
+    const tbody = document.getElementById('teachers-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Aucun enseignant.</td></tr>`; return; }
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td>${r.email || '—'}</td>
+        <td>${fmt(r.created_at)}</td>
+        <td><div class="actions">
+          <button class="btn btn-danger" onclick="deleteTeacher(${r.id})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function addTeacher() {
+    const name  = document.getElementById('t-name').value.trim();
+    const email = document.getElementById('t-email').value.trim();
+    const pass  = document.getElementById('t-pass').value;
+    if (!name || !pass) return toast('Nom et mot de passe requis.', false);
+    try {
+      await api('POST', '/admin/teachers', { name, email, password: pass });
+      ['t-name','t-email','t-pass'].forEach(id => document.getElementById(id).value = '');
+      toast('Enseignant ajouté ✓');
+      loadTeachers();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function deleteTeacher(id) {
+    if (!confirm('Supprimer cet enseignant ?')) return;
+    await api('DELETE', `/admin/teachers/${id}`);
+    toast('Supprimé.');
+    loadTeachers();
+  }
+
+  // ── Students ──────────────────────────────────────────────────────────────
+
+  async function loadStudents() {
+    const [rows, teachers, courses] = await Promise.all([
+      api('GET', '/admin/students'),
+      api('GET', '/admin/teachers'),
+      api('GET', '/admin/courses')
+    ]);
+    const tSel = document.getElementById('s-teacher');
+    const cSel = document.getElementById('s-course');
+    tSel.innerHTML = '<option value="">— Choisir —</option>' +
+      teachers.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+    cSel.innerHTML = '<option value="">— Choisir —</option>' +
+      courses.map(c => `<option value="${c.id}">${c.name_fr}</option>`).join('');
+
+    const tbody = document.getElementById('students-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun étudiant.</td></tr>`; return; }
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.full_name}</strong></td>
+        <td>${r.teacher_name || '—'}</td>
+        <td>${r.course_name || '—'}</td>
+        <td>${r.phone || '—'}</td>
+        <td><div class="actions">
+          <button class="btn btn-danger" onclick="deleteStudent(${r.id})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function addStudent() {
+    const full_name    = document.getElementById('s-name').value.trim();
+    const teacher_name = document.getElementById('s-teacher').value;
+    const course_id    = document.getElementById('s-course').value || null;
+    const phone        = document.getElementById('s-phone').value.trim();
+    const email        = document.getElementById('s-email').value.trim();
+    if (!full_name) return toast('Nom requis.', false);
+    try {
+      await api('POST', '/admin/students', { full_name, teacher_name, course_id, phone, email });
+      ['s-name','s-phone','s-email'].forEach(id => document.getElementById(id).value = '');
+      toast('Étudiant ajouté ✓');
+      loadStudents();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function deleteStudent(id) {
+    if (!confirm('Supprimer cet étudiant ?')) return;
+    await api('DELETE', `/admin/students/${id}`);
+    toast('Supprimé.');
+    loadStudents();
+  }
+
+  // ── Courses ───────────────────────────────────────────────────────────────
+
+  async function loadCourses() {
+    const rows = await api('GET', '/admin/courses');
+    const tbody = document.getElementById('courses-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Aucun cours.</td></tr>`; return; }
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${r.name_fr}</td>
+        <td dir="rtl">${r.name_ar || '—'}</td>
+        <td>${r.category || '—'}</td>
+        <td><div class="actions">
+          <button class="btn btn-danger" onclick="deleteCourse(${r.id})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function addCourse() {
+    const name_fr  = document.getElementById('c-name-fr').value.trim();
+    const name_ar  = document.getElementById('c-name-ar').value.trim();
+    const category = document.getElementById('c-cat').value.trim();
+    if (!name_fr) return toast('Nom (FR) requis.', false);
+    try {
+      await api('POST', '/admin/courses', { name_fr, name_ar, category });
+      ['c-name-fr','c-name-ar','c-cat'].forEach(id => document.getElementById(id).value = '');
+      toast('Cours ajouté ✓');
+      loadCourses();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function deleteCourse(id) {
+    if (!confirm('Supprimer ce cours ?')) return;
+    await api('DELETE', `/admin/courses/${id}`);
+    toast('Supprimé.');
+    loadCourses();
+  }
+
+  // ── News ──────────────────────────────────────────────────────────────────
+
+  async function loadNews() {
+    const rows = await api('GET', '/admin/news');
+    const tbody = document.getElementById('news-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucune actualité.</td></tr>`; return; }
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${truncate(r.content_fr)}</td>
+        <td dir="rtl">${truncate(r.content_ar)}</td>
+        <td>
+          <span class="badge ${r.published ? 'badge-green' : 'badge-gray'}">
+            ${r.published ? 'Publié' : 'Masqué'}
+          </span>
+        </td>
+        <td>${fmt(r.created_at)}</td>
+        <td><div class="actions">
+          <button class="btn btn-ghost" onclick="toggleNews(${r.id})">
+            ${r.published ? 'Masquer' : 'Publier'}
+          </button>
+          <button class="btn btn-danger" onclick="deleteNews(${r.id})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function addNews() {
+    const content_fr = document.getElementById('n-content-fr').value.trim();
+    const content_ar = document.getElementById('n-content-ar').value.trim();
+    if (!content_fr && !content_ar) return toast('Contenu requis.', false);
+    try {
+      await api('POST', '/admin/news', { content_fr, content_ar });
+      ['n-content-fr','n-content-ar'].forEach(id => document.getElementById(id).value = '');
+      toast('Actualité publiée ✓');
+      loadNews();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function toggleNews(id) {
+    await api('PATCH', `/admin/news/${id}/toggle`);
+    toast('Statut mis à jour.');
+    loadNews();
+  }
+
+  async function deleteNews(id) {
+    if (!confirm('Supprimer cette actualité ?')) return;
+    await api('DELETE', `/admin/news/${id}`);
+    toast('Supprimé.');
+    loadNews();
+  }
+
+  // ── Registrations ─────────────────────────────────────────────────────────
+
+  async function loadRegistrations() {
+    const rows = await api('GET', '/admin/registrations');
+    const tbody = document.getElementById('registrations-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Aucune inscription.</td></tr>`; return; }
+    tbody.innerHTML = rows.map((r, i) => {
+      const badge = r.status === 'confirmed' ? 'badge-green' :
+                    r.status === 'rejected'  ? 'badge-red'   : 'badge-yellow';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td><strong>${r.full_name}</strong></td>
+        <td>${r.phone || '—'}</td>
+        <td>${r.course_name || r.course_id || '—'}</td>
+        <td><span class="badge ${badge}">${r.status}</span></td>
+        <td>${fmt(r.submitted_at)}</td>
+        <td><div class="actions">
+          ${r.status !== 'confirmed' ? `<button class="btn btn-success" onclick="setStatus(${r.id},'confirmed')">✓</button>` : ''}
+          ${r.status !== 'rejected'  ? `<button class="btn btn-danger"  onclick="setStatus(${r.id},'rejected')">✗</button>` : ''}
+          ${r.status !== 'pending'   ? `<button class="btn btn-ghost"   onclick="setStatus(${r.id},'pending')">↺</button>` : ''}
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function setStatus(id, status) {
+    await api('PATCH', `/admin/registrations/${id}/status`, { status });
+    toast('Statut mis à jour.');
+    loadRegistrations();
+  }
+
+  // ── Grades ────────────────────────────────────────────────────────────────
+
+  async function loadGrades() {
+    const rows = await api('GET', '/admin/grades');
+    const tbody = document.getElementById('grades-tbody');
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Aucune note enregistrée.</td></tr>`; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.session_date || fmt(r.created_at)}</td>
+        <td>${r.teacher_name}</td>
+        <td><strong>${r.student_name}</strong></td>
+        <td>${r.revision_score    || '—'}</td>
+        <td>${r.recitation_score  || '—'}</td>
+        <td>${r.preparation_score || '—'}</td>
+        <td>${r.arabe_score       || '—'}</td>
+        <td>${r.tarbiya_score     || '—'}</td>
+        <td>${r.devoir_score      || '—'}</td>
+        <td>${truncate(r.remarque, 40)}</td>
+        <td><strong>${r.final_grade || '—'}</strong></td>
+      </tr>`).join('');
+  }
+</script>
+</body>
+</html>
