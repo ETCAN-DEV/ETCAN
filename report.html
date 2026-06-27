@@ -183,6 +183,50 @@
   }
   #toast.show { opacity: 1; }
 
+  /* ── Attendance summary ── */
+  .attendance-section {
+    padding: 0 32px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .attendance-section h4 {
+    font-size: .78rem; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); margin-bottom: 14px;
+  }
+  .att-stats {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .att-stat {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 16px; min-width: 120px;
+  }
+  .att-stat .dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .att-stat .dot-green  { background: var(--green); }
+  .att-stat .dot-orange { background: #e65100; }
+  .att-stat .dot-red    { background: var(--red); }
+  .att-stat .att-num { font-size: 1.4rem; font-weight: 700; line-height: 1; color: var(--text); }
+  .att-stat .att-lbl { font-size: .74rem; color: var(--muted); }
+
+  .att-bar-wrap {
+    background: #eef2f8; border-radius: 99px; height: 14px;
+    overflow: hidden; display: flex;
+  }
+  .att-bar-segment { height: 100%; transition: width .4s; }
+  .att-bar-present { background: var(--green); }
+  .att-bar-late    { background: #e65100; }
+  .att-bar-absent  { background: var(--red); }
+  .att-bar-legend {
+    display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap;
+  }
+  .att-bar-legend span {
+    font-size: .74rem; color: var(--muted); display: flex; align-items: center; gap: 5px;
+  }
+  .att-bar-legend .dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+
   /* ── Print styles ── */
   @media print {
     body { background: white; padding: 0; }
@@ -220,6 +264,9 @@
 
     <!-- Summary -->
     <div class="summary-bar" id="summary-bar"></div>
+
+    <!-- Attendance summary -->
+    <div class="attendance-section" id="attendance-section" style="display:none"></div>
 
     <!-- Grades table -->
     <div class="table-wrap">
@@ -350,6 +397,60 @@
           <div class="lbl">Moy. Récitation</div>
         </div>
       `;
+
+      // ── Attendance summary
+      if (totalSessions > 0) {
+        const presentCount = grades.filter(g => !g.attendance || g.attendance === 'present').length;
+        const lateCount    = grades.filter(g => g.attendance === 'late').length;
+        const absentCount  = grades.filter(g => g.attendance === 'absent').length;
+        const pctPresent   = Math.round((presentCount / totalSessions) * 100);
+        const pctLate      = Math.round((lateCount    / totalSessions) * 100);
+        const pctAbsent    = Math.round((absentCount  / totalSessions) * 100);
+        const attEl = document.getElementById('attendance-section');
+        attEl.style.display = 'block';
+        attEl.innerHTML = `
+          <h4>الحضور والغياب — Suivi de présence</h4>
+          <div class="att-stats">
+            <div class="att-stat">
+              <div class="dot dot-green"></div>
+              <div>
+                <div class="att-num">${presentCount}</div>
+                <div class="att-lbl">Présent · حاضر</div>
+              </div>
+            </div>
+            <div class="att-stat">
+              <div class="dot dot-orange"></div>
+              <div>
+                <div class="att-num">${lateCount}</div>
+                <div class="att-lbl">Retard · متأخر</div>
+              </div>
+            </div>
+            <div class="att-stat">
+              <div class="dot dot-red"></div>
+              <div>
+                <div class="att-num">${absentCount}</div>
+                <div class="att-lbl">Absent · غائب</div>
+              </div>
+            </div>
+            <div class="att-stat" style="border-color:${pctPresent >= 80 ? 'var(--green)' : pctPresent >= 60 ? '#e65100' : 'var(--red)'}">
+              <div>
+                <div class="att-num" style="color:${pctPresent >= 80 ? 'var(--green)' : pctPresent >= 60 ? '#e65100' : 'var(--red)'}">${pctPresent}%</div>
+                <div class="att-lbl">Taux de présence</div>
+              </div>
+            </div>
+          </div>
+          <div class="att-bar-wrap">
+            <div class="att-bar-segment att-bar-present" style="width:${pctPresent}%"></div>
+            <div class="att-bar-segment att-bar-late"    style="width:${pctLate}%"></div>
+            <div class="att-bar-segment att-bar-absent"  style="width:${pctAbsent}%"></div>
+          </div>
+          <div class="att-bar-legend">
+            <span><span class="dot" style="background:var(--green)"></span>Présent ${pctPresent}%</span>
+            <span><span class="dot" style="background:#e65100"></span>Retard ${pctLate}%</span>
+            <span><span class="dot" style="background:var(--red)"></span>Absent ${pctAbsent}%</span>
+            <span style="margin-left:auto">${totalSessions} séance${totalSessions > 1 ? 's' : ''} au total</span>
+          </div>`;
+      }
 
       // ── Grades table
       const container = document.getElementById('grades-container');
