@@ -497,6 +497,56 @@ app.get('/admin/stats', requireAdmin, async (req, res) => {
     });
 });
 
+// ── Absence alerts (shared SQL) ───────────────────────────────────────────────
+
+async function fetchAbsenceAlerts(teacherFilter = null) {
+    const params = [];
+    const teacherWhere = teacherFilter ? `AND sg.teacher_name = $1` : '';
+    if (teacherFilter) params.push(teacherFilter);
+
+    const sql = `
+        WITH ranked AS (
+            SELECT student_name, teacher_name, attendance,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY student_name
+                       ORDER BY COALESCE(session_date::date, created_at::date) DESC
+                   ) AS rn
+            FROM session_grades
+            WHERE TRUE ${teacherWhere}
+        ),
+        last3 AS (
+            SELECT student_name, teacher_name,
+                   COUNT(*)                                                        AS total_recent,
+                   SUM(CASE WHEN attendance = 'absent' THEN 1 ELSE 0 END)         AS absent_streak
+            FROM ranked WHERE rn <= 3
+            GROUP BY student_name, teacher_name
+        )
+        SELECT l.student_name, l.teacher_name,
+               l.absent_streak::int,
+               s.id AS student_id,
+               (SELECT COALESCE(session_date::text, created_at::text)
+                FROM session_grades sg2
+                WHERE sg2.student_name = l.student_name
+                ORDER BY COALESCE(session_date::date, created_at::date) DESC
+                LIMIT 1) AS last_session
+        FROM last3 l
+        LEFT JOIN students s ON s.full_name = l.student_name
+        WHERE l.absent_streak >= 3 AND l.total_recent = 3
+        ORDER BY l.absent_streak DESC, l.student_name`;
+    const result = await pool.query(sql, params);
+    return result.rows;
+}
+
+app.get('/admin/absence-alerts', requireAdmin, async (req, res) => {
+    try { res.json(await fetchAbsenceAlerts()); }
+    catch (err) { console.error('absence-alerts error:', err); res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/teacher/absence-alerts', requireTeacher, async (req, res) => {
+    try { res.json(await fetchAbsenceAlerts(req.teacherName)); }
+    catch (err) { console.error('teacher absence-alerts error:', err); res.status(500).json({ error: err.message }); }
+});
+
 // ── Public student report ────────────────────────────────────────────────────
 
 app.get('/report/:id', (req, res) => res.sendFile(join(__dirname, 'report.html')));

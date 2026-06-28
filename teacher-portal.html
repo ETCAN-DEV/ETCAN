@@ -224,6 +224,21 @@
   <!-- ── STUDENTS TAB ── -->
   <div id="tab-students" class="content">
 
+    <!-- Absence alert banner -->
+    <div id="absence-banner" style="display:none;background:#fff8f8;border:1.5px solid #f5c6c6;border-radius:12px;padding:18px 22px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.3rem">⚠️</span>
+          <strong style="color:#c62828;font-size:.95rem">Absences répétées détectées</strong>
+          <span id="banner-count" style="background:#c62828;color:white;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px"></span>
+        </div>
+        <button onclick="document.getElementById('absence-banner').style.display='none'"
+          style="background:none;border:none;color:#6c7a95;cursor:pointer;font-size:.82rem;padding:4px 8px;border-radius:6px">✕ Masquer</button>
+      </div>
+      <p style="font-size:.82rem;color:#6c7a95;margin-bottom:12px">Ces élèves étaient absents lors de leurs 3 dernières séances. Un suivi est recommandé.</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="banner-list"></div>
+    </div>
+
     <div class="stat-row" id="student-stats">
       <div class="stat-pill"><div class="val" id="st-total">—</div><div class="lbl">Élèves au total</div></div>
       <div class="stat-pill green"><div class="val" id="st-sessions">—</div><div class="lbl">Sessions enregistrées</div></div>
@@ -364,6 +379,33 @@
     document.getElementById('nav-teacher-name').textContent = '👤 ' + teacherName;
     loadStudents();
     loadGrades();
+    loadAbsenceAlerts();
+  }
+
+  async function loadAbsenceAlerts() {
+    let alerts = [];
+    try { alerts = await api('GET', '/api/teacher/absence-alerts'); } catch { return; }
+    const banner = document.getElementById('absence-banner');
+    if (!alerts.length) { banner.style.display = 'none'; return; }
+    document.getElementById('banner-count').textContent =
+      alerts.length + ' élève' + (alerts.length > 1 ? 's' : '');
+    banner.style.display = 'block';
+    document.getElementById('banner-list').innerHTML = alerts.map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+                  background:white;border:1px solid #f5c6c6;border-radius:8px;padding:10px 14px;">
+        <div>
+          <strong style="color:#c62828">${a.student_name}</strong>
+          <span style="font-size:.8rem;color:#6c7a95;margin-left:8px">
+            ⚠️ ${a.absent_streak} absences consécutives
+            ${a.last_session ? ' · Dernière séance : ' + new Date(a.last_session).toLocaleDateString('fr-FR') : ''}
+          </span>
+        </div>
+        ${a.student_id
+          ? `<a href="/report/${a.student_id}" target="_blank"
+               style="background:var(--primary);color:white;padding:5px 12px;border-radius:7px;
+                      font-size:.78rem;font-weight:600;text-decoration:none;">📄 Bulletin</a>`
+          : ''}
+      </div>`).join('');
   }
 
   // ── API helper ─────────────────────────────────────────────────────────────

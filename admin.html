@@ -219,7 +219,7 @@
     <button onclick="switchTab('news',      this)">📰 Actualités</button>
     <button onclick="switchTab('registrations', this)">📋 Inscriptions</button>
     <button onclick="switchTab('grades',    this)">📊 Notes</button>
-    <button onclick="switchTab('stats',     this)">📈 Statistiques</button>
+    <button onclick="switchTab('stats',     this)">📈 Statistiques <span id="alert-badge" style="display:none;background:#c62828;color:white;font-size:.7rem;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:4px;vertical-align:middle"></span></button>
   </nav>
 
   <main>
@@ -382,6 +382,22 @@
 
     <!-- STATS -->
     <div class="tab-panel" id="tab-stats">
+
+      <!-- Absence alerts -->
+      <div id="absence-alerts-card" style="display:none;background:#fff8f8;border:1.5px solid #f5c6c6;border-radius:12px;padding:20px 24px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="font-size:1.3rem">⚠️</span>
+          <h3 style="color:#c62828;font-size:1rem;margin:0">Alertes d'absences répétées</h3>
+          <span id="alert-count-lbl" style="background:#c62828;color:white;font-size:.75rem;font-weight:700;padding:2px 9px;border-radius:12px;margin-left:4px"></span>
+        </div>
+        <p style="font-size:.83rem;color:#6c7a95;margin-bottom:14px">Les élèves suivants ont été absents lors de leurs 3 dernières séances consécutives.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Élève</th><th>Enseignant</th><th>Séances absentes</th><th>Dernière séance</th><th>Bulletin</th></tr></thead>
+            <tbody id="alerts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="stat-grid" id="stat-cards">
         <div class="stat-card"><div class="stat-label">Enseignants</div><div class="stat-value" id="st-teachers">—</div></div>
@@ -790,7 +806,29 @@
 
   let chartMonths, chartTeachers;
 
+  async function loadAbsenceAlerts() {
+    let alerts = [];
+    try { alerts = await api('GET', '/admin/absence-alerts'); } catch { return; }
+    const badge = document.getElementById('alert-badge');
+    const card  = document.getElementById('absence-alerts-card');
+    const lbl   = document.getElementById('alert-count-lbl');
+    if (!alerts.length) { badge.style.display = 'none'; card.style.display = 'none'; return; }
+    badge.textContent = alerts.length;
+    badge.style.display = 'inline';
+    lbl.textContent = alerts.length + ' élève' + (alerts.length > 1 ? 's' : '');
+    card.style.display = 'block';
+    document.getElementById('alerts-tbody').innerHTML = alerts.map(a => `
+      <tr>
+        <td><strong>${a.student_name}</strong></td>
+        <td>${a.teacher_name}</td>
+        <td style="color:#c62828;font-weight:700">⚠️ ${a.absent_streak} absences</td>
+        <td>${a.last_session ? new Date(a.last_session).toLocaleDateString('fr-FR') : '—'}</td>
+        <td>${a.student_id ? `<a href="/report/${a.student_id}" target="_blank" style="color:var(--primary);font-weight:600;font-size:.82rem">📄 Bulletin</a>` : '—'}</td>
+      </tr>`).join('');
+  }
+
   async function loadStats() {
+    loadAbsenceAlerts();
     const s = await api('GET', '/admin/stats');
     const c = s.counts;
 
