@@ -4,6 +4,8 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import nodemailer from 'nodemailer';
+import cron from 'node-cron';
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -577,6 +579,215 @@ app.get('/api/report/:id', async (req, res) => {
         res.json({ student: studentRes.rows[0], grades: gradesRes.rows });
     } catch (err) {
         console.error('/api/report error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Email system ─────────────────────────────────────────────────────────────
+
+function makeTransporter() {
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+    if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+    return nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: parseInt(SMTP_PORT || '587'),
+        secure: parseInt(SMTP_PORT || '587') === 465,
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
+    });
+}
+
+function digestEmailHtml(teacher, weekSessions, alerts, weekLabel) {
+    const totalSessions = weekSessions.length;
+    const presentCount  = weekSessions.filter(s => !s.attendance || s.attendance === 'present').length;
+    const lateCount     = weekSessions.filter(s => s.attendance === 'late').length;
+    const absentCount   = weekSessions.filter(s => s.attendance === 'absent').length;
+    const finals        = weekSessions.map(s => parseFloat(s.final_grade)).filter(v => !isNaN(v));
+    const avgGrade      = finals.length ? (finals.reduce((a,b)=>a+b,0)/finals.length).toFixed(1) : '—';
+
+    const sessionRows = weekSessions.length
+        ? weekSessions.map(s => `
+            <tr>
+              <td style="padding:9px 12px;border-bottom:1px solid #e8ecf2">${s.student_name}</td>
+              <td style="padding:9px 12px;border-bottom:1px solid #e8ecf2;text-align:center">
+                ${s.attendance === 'absent' ? '<span style="color:#c62828;font-weight:700">✘ Absent</span>'
+                  : s.attendance === 'late'   ? '<span style="color:#e65100;font-weight:700">⏱ Retard</span>'
+                  : '<span style="color:#2e7d32;font-weight:700">✔ Présent</span>'}
+              </td>
+              <td style="padding:9px 12px;border-bottom:1px solid #e8ecf2;text-align:center;font-weight:700;color:${
+                  parseFloat(s.final_grade)>=14 ? '#2e7d32' : parseFloat(s.final_grade)>=10 ? '#e65100' : '#c62828'
+              }">${s.final_grade ?? '—'}/20</td>
+              <td style="padding:9px 12px;border-bottom:1px solid #e8ecf2;color:#6c7a95;font-size:.85em">${s.remarque || ''}</td>
+            </tr>`).join('')
+        : `<tr><td colspan="4" style="padding:20px;text-align:center;color:#6c7a95">Aucune séance cette semaine.</td></tr>`;
+
+    const alertRows = alerts.length
+        ? alerts.map(a => `
+            <tr>
+              <td style="padding:9px 12px;border-bottom:1px solid #fde8e8;color:#c62828;font-weight:700">${a.student_name}</td>
+              <td style="padding:9px 12px;border-bottom:1px solid #fde8e8">⚠️ ${a.absent_streak} absences consécutives</td>
+            </tr>`).join('')
+        : '';
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f4f6fa;font-family:'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+
+  <!-- Header -->
+  <tr><td style="background:#1e3a5f;border-radius:14px 14px 0 0;padding:28px 32px">
+    <table width="100%"><tr>
+      <td><span style="font-size:1.6rem">🎓</span></td>
+      <td style="padding-left:12px">
+        <div style="color:white;font-size:1.1rem;font-weight:700">Académie ETCAN</div>
+        <div style="color:#c8a94e;font-size:.85rem">Résumé hebdomadaire — ${weekLabel}</div>
+      </td>
+      <td align="right"><div style="color:rgba(255,255,255,.7);font-size:.82rem;direction:rtl">ملخص أسبوعي</div></td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Greeting -->
+  <tr><td style="background:white;padding:24px 32px 16px">
+    <p style="color:#1a1a2e;font-size:1rem;margin:0 0 6px">Bonjour <strong>${teacher.name}</strong>,</p>
+    <p style="color:#6c7a95;font-size:.88rem;margin:0">Voici le résumé de vos séances pour la semaine du <strong>${weekLabel}</strong>.</p>
+  </td></tr>
+
+  <!-- Stats row -->
+  <tr><td style="background:white;padding:0 32px 24px">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="background:#f4f6fa;border-radius:10px;padding:14px;width:25%">
+          <div style="font-size:1.6rem;font-weight:700;color:#1e3a5f">${totalSessions}</div>
+          <div style="font-size:.74rem;color:#6c7a95">Séances</div>
+        </td>
+        <td width="8"></td>
+        <td align="center" style="background:#f0faf0;border-radius:10px;padding:14px;width:25%">
+          <div style="font-size:1.6rem;font-weight:700;color:#2e7d32">${presentCount}</div>
+          <div style="font-size:.74rem;color:#6c7a95">Présents</div>
+        </td>
+        <td width="8"></td>
+        <td align="center" style="background:#fff8f0;border-radius:10px;padding:14px;width:25%">
+          <div style="font-size:1.6rem;font-weight:700;color:#e65100">${lateCount}</div>
+          <div style="font-size:.74rem;color:#6c7a95">Retards</div>
+        </td>
+        <td width="8"></td>
+        <td align="center" style="background:#fff4f4;border-radius:10px;padding:14px;width:25%">
+          <div style="font-size:1.6rem;font-weight:700;color:#c62828">${absentCount}</div>
+          <div style="font-size:.74rem;color:#6c7a95">Absents</div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <!-- Avg grade -->
+  ${avgGrade !== '—' ? `<tr><td style="background:white;padding:0 32px 24px">
+    <div style="background:#f4f6fa;border-radius:10px;padding:14px 18px;display:inline-block">
+      <span style="color:#6c7a95;font-size:.85rem">Moyenne des notes cette semaine : </span>
+      <strong style="font-size:1.1rem;color:#1e3a5f">${avgGrade} / 20</strong>
+    </div>
+  </td></tr>` : ''}
+
+  <!-- Sessions table -->
+  <tr><td style="background:white;padding:0 32px 8px">
+    <div style="font-size:.78rem;text-transform:uppercase;letter-spacing:.8px;color:#6c7a95;margin-bottom:12px">Séances de la semaine</div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:8px;overflow:hidden;border:1px solid #e8ecf2">
+      <thead>
+        <tr style="background:#1e3a5f">
+          <th style="padding:10px 12px;color:white;text-align:left;font-size:.78rem">Élève</th>
+          <th style="padding:10px 12px;color:white;text-align:center;font-size:.78rem">Présence</th>
+          <th style="padding:10px 12px;color:white;text-align:center;font-size:.78rem">Note</th>
+          <th style="padding:10px 12px;color:white;text-align:left;font-size:.78rem">Remarque</th>
+        </tr>
+      </thead>
+      <tbody>${sessionRows}</tbody>
+    </table>
+  </td></tr>
+
+  <!-- Alerts -->
+  ${alertRows ? `<tr><td style="background:white;padding:20px 32px 8px">
+    <div style="background:#fff8f8;border:1.5px solid #f5c6c6;border-radius:10px;padding:16px 20px">
+      <div style="font-size:.85rem;font-weight:700;color:#c62828;margin-bottom:10px">⚠️ Alertes d'absences répétées</div>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tbody>${alertRows}</tbody>
+      </table>
+    </div>
+  </td></tr>` : ''}
+
+  <!-- Footer -->
+  <tr><td style="background:#1e3a5f;border-radius:0 0 14px 14px;padding:18px 32px;margin-top:4px">
+    <table width="100%"><tr>
+      <td><span style="color:rgba(255,255,255,.6);font-size:.76rem">Académie ETCAN — résumé automatique</span></td>
+      <td align="right"><span style="color:#c8a94e;font-size:.76rem">✦ أكاديمية إتقان ✦</span></td>
+    </tr></table>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+async function sendWeeklyDigests() {
+    const transporter = makeTransporter();
+    if (!transporter) {
+        console.log('[email] SMTP not configured — skipping weekly digest');
+        return { skipped: true, reason: 'SMTP not configured' };
+    }
+
+    // Date range: last 7 days
+    const since = new Date(); since.setDate(since.getDate() - 7);
+    const sinceStr = since.toISOString().slice(0, 10);
+    const weekLabel = since.toLocaleDateString('fr-FR', { day:'2-digit', month:'long' })
+        + ' – ' + new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+    // Get all teachers with email
+    const teachers = await pool.query(
+        `SELECT id, name, email FROM teachers WHERE email IS NOT NULL AND email != '' ORDER BY name`
+    );
+
+    const results = [];
+    for (const teacher of teachers.rows) {
+        try {
+            const [sessionsRes, alertsRaw] = await Promise.all([
+                pool.query(
+                    `SELECT student_name, session_date, created_at, attendance, final_grade, remarque
+                     FROM session_grades
+                     WHERE teacher_name = $1
+                       AND COALESCE(session_date::date, created_at::date) >= $2
+                     ORDER BY COALESCE(session_date::date, created_at::date) DESC`,
+                    [teacher.name, sinceStr]
+                ),
+                fetchAbsenceAlerts(teacher.name)
+            ]);
+
+            const html = digestEmailHtml(teacher, sessionsRes.rows, alertsRaw, weekLabel);
+            const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+            await transporter.sendMail({
+                from: `"Académie ETCAN" <${from}>`,
+                to: teacher.email,
+                subject: `📋 Résumé hebdomadaire — ${weekLabel}`,
+                html
+            });
+            results.push({ name: teacher.name, email: teacher.email, status: 'sent' });
+            console.log(`[email] Digest sent to ${teacher.name} <${teacher.email}>`);
+        } catch (err) {
+            results.push({ name: teacher.name, email: teacher.email, status: 'error', error: err.message });
+            console.error(`[email] Failed for ${teacher.name}:`, err.message);
+        }
+    }
+    return { results, weekLabel };
+}
+
+// Schedule: every Monday at 08:00
+cron.schedule('0 8 * * 1', () => {
+    console.log('[cron] Running weekly digest…');
+    sendWeeklyDigests().catch(err => console.error('[cron] Digest error:', err));
+}, { timezone: 'Africa/Casablanca' });
+
+// Admin: trigger digest manually
+app.post('/admin/send-digest', requireAdmin, async (req, res) => {
+    try {
+        const result = await sendWeeklyDigests();
+        res.json(result);
+    } catch (err) {
+        console.error('send-digest error:', err);
         res.status(500).json({ error: err.message });
     }
 });

@@ -408,6 +408,18 @@
         <div class="stat-card"><div class="stat-label">Actualités publiées</div><div class="stat-value" id="st-news">—</div></div>
       </div>
 
+      <!-- Email digest -->
+      <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+        <div>
+          <div style="font-weight:700;font-size:.95rem;margin-bottom:4px">📧 Résumé hebdomadaire par email</div>
+          <div style="font-size:.82rem;color:var(--muted)">Envoyé automatiquement chaque <strong>lundi à 8h</strong> à tous les enseignants ayant un email enregistré.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="digest-status" style="font-size:.8rem;color:var(--muted)"></span>
+          <button class="btn btn-primary" style="font-size:.85rem;padding:8px 18px" onclick="sendDigestNow(this)">▶ Envoyer maintenant</button>
+        </div>
+      </div>
+
       <div class="charts-grid">
         <div class="chart-card">
           <h3>Sessions par mois (6 derniers mois)</h3>
@@ -805,6 +817,39 @@
   // ── Stats ─────────────────────────────────────────────────────────────────
 
   let chartMonths, chartTeachers;
+
+  async function sendDigestNow(btn) {
+    const statusEl = document.getElementById('digest-status');
+    btn.disabled = true; btn.textContent = '⏳ Envoi…';
+    statusEl.textContent = '';
+    try {
+      const result = await api('POST', '/admin/send-digest');
+      if (result.skipped) {
+        statusEl.textContent = '⚠️ SMTP non configuré — voir les réglages.';
+        statusEl.style.color = '#e65100';
+      } else {
+        const sent  = (result.results || []).filter(r => r.status === 'sent').length;
+        const total = (result.results || []).length;
+        const errs  = (result.results || []).filter(r => r.status === 'error');
+        if (sent === 0 && total === 0) {
+          statusEl.textContent = '— Aucun enseignant avec email enregistré.';
+          statusEl.style.color = 'var(--muted)';
+        } else if (errs.length) {
+          statusEl.textContent = `✔ ${sent}/${total} envoyés — ${errs.length} erreur(s).`;
+          statusEl.style.color = '#e65100';
+        } else {
+          statusEl.textContent = `✅ ${sent} email${sent>1?'s':''} envoyé${sent>1?'s':''} (${result.weekLabel})`;
+          statusEl.style.color = 'var(--green)';
+        }
+        toast(`📧 Digest envoyé à ${sent} enseignant${sent>1?'s':''}`);
+      }
+    } catch (e) {
+      statusEl.textContent = '❌ Erreur : ' + e.message;
+      statusEl.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false; btn.textContent = '▶ Envoyer maintenant';
+    }
+  }
 
   async function loadAbsenceAlerts() {
     let alerts = [];
