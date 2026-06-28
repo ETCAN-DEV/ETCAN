@@ -281,8 +281,8 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nom</th><th>Enseignant</th><th>Cours</th><th>Téléphone</th><th>Action</th></tr></thead>
-            <tbody id="students-tbody"><tr><td colspan="6" class="empty-state">Chargement…</td></tr></tbody>
+            <thead><tr><th>#</th><th>Nom</th><th>Enseignant</th><th>Cours</th><th>Téléphone</th><th>Code Parent</th><th>Action</th></tr></thead>
+            <tbody id="students-tbody"><tr><td colspan="7" class="empty-state">Chargement…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -655,7 +655,7 @@
     if (prevSfVal) sfSel.value = prevSfVal;
 
     const tbody = document.getElementById('students-tbody');
-    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun étudiant.</td></tr>`; updateStudentCount(); return; }
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Aucun étudiant.</td></tr>`; updateStudentCount(); return; }
     tbody.innerHTML = rows.map((r, i) => `
       <tr data-name="${(r.full_name || '').toLowerCase()}" data-teacher="${(r.teacher_name || '').toLowerCase()}">
         <td>${i + 1}</td>
@@ -663,6 +663,13 @@
         <td>${r.teacher_name || '—'}</td>
         <td>${r.course_name || '—'}</td>
         <td>${r.phone || '—'}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <code style="font-size:.82rem;background:#f4f6fa;padding:3px 8px;border-radius:6px;letter-spacing:1.5px;font-weight:700;color:var(--navy)" id="code-${r.id}">${r.parent_code || '—'}</code>
+            <button class="btn" style="font-size:.72rem;padding:4px 8px" onclick="copyCode('${r.parent_code || ''}','${r.id}')" title="Copier">📋</button>
+            <button class="btn" style="font-size:.72rem;padding:4px 8px" onclick="regenCode(${r.id})" title="Régénérer">🔄</button>
+          </div>
+        </td>
         <td><div class="actions">
           <a class="btn btn-primary" href="/report/${r.id}" target="_blank" style="text-decoration:none;font-size:.8rem;padding:6px 12px">📄 Bulletin</a>
           <button class="btn btn-danger" onclick="deleteStudent(${r.id})">Supprimer</button>
@@ -691,6 +698,24 @@
     await api('DELETE', `/admin/students/${id}`);
     toast('Supprimé.');
     loadStudents();
+  }
+
+  function copyCode(code, id) {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => toast('Code copié : ' + code)).catch(() => {
+      const el = document.getElementById('code-' + id);
+      if (el) { const r = document.createRange(); r.selectNode(el); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); }
+    });
+  }
+
+  async function regenCode(id) {
+    if (!confirm('Régénérer le code parent ? L\'ancien code ne fonctionnera plus.')) return;
+    try {
+      const { parent_code } = await api('POST', `/admin/students/${id}/regen-code`);
+      const el = document.getElementById('code-' + id);
+      if (el) el.textContent = parent_code;
+      toast('Nouveau code : ' + parent_code);
+    } catch (e) { toast(e.message, false); }
   }
 
   // ── Courses ───────────────────────────────────────────────────────────────

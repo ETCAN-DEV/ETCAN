@@ -10,12 +10,42 @@ import cron from 'node-cron';
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const app = express();
+
+// ── DB init / migrations ──────────────────────────────────────────────────────
+async function initDB() {
+    await pool.query(`
+        ALTER TABLE students ADD COLUMN IF NOT EXISTS parent_code VARCHAR(8) UNIQUE
+    `);
+    // Auto-generate codes for existing students that have none
+    const missing = await pool.query(`SELECT id FROM students WHERE parent_code IS NULL`);
+    for (const row of missing.rows) {
+        let code, ok = false;
+        while (!ok) {
+            code = genParentCode();
+            const exists = await pool.query('SELECT 1 FROM students WHERE parent_code=$1', [code]);
+            ok = !exists.rows.length;
+        }
+        await pool.query('UPDATE students SET parent_code=$1 WHERE id=$2', [code, row.id]);
+    }
+    console.log('[db] migrations ok');
+}
+initDB().catch(err => console.error('[db] migration error:', err));
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 app.use(express.json());
 app.use(express.text({ type: 'text/plain;charset=utf-8' }));
 
-const adminTokens = new Set();
+const adminTokens  = new Set();
+const teacherTokens = new Map(); // token → teacherName
+const parentTokens  = new Map(); // token → studentId
+
+function genParentCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    const bytes = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) code += chars[bytes[i] % chars.length];
+    return code;
+}
 
 function parseBody(body) {
     if (typeof body === 'string') {
@@ -218,8 +248,6 @@ app.post('/api', async (req, res) => {
 
 // ── Teacher Auth ─────────────────────────────────────────────────────────────
 
-const teacherTokens = new Map(); // token → teacherName
-
 function requireTeacher(req, res, next) {
     const auth  = req.headers['authorization'] || '';
     const token = auth.replace('Bearer ', '').trim();
@@ -291,6 +319,67 @@ app.post('/admin/logout', requireAdmin, (req, res) => {
     res.json({ ok: true });
 });
 
+// ── Parent Auth ──────────────────────────────────────────────────────────────
+
+function requireParent(req, res, next) {
+    const auth  = req.headers['authorization'] || '';
+    const token = auth.replace('Bearer ', '').trim();
+    if (!token || !parentTokens.has(token)) return res.status(401).json({ error: 'Unauthorized' });
+    req.studentId = parentTokens.get(token);
+    next();
+}
+
+app.get('/parent', (req, res) => res.sendFile(join(__dirname, 'parent-portal.html')));
+
+app.post('/parent/login', async (req, res) => {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Code requis' });
+    const result = await pool.query(
+        `SELECT s.id, s.full_name, s.teacher_name, c.name_fr AS course_fr, c.name_ar AS course_ar
+         FROM students s
+         LEFT JOIN courses c ON c.id = s.course_id
+         WHERE UPPER(TRIM(s.parent_code)) = UPPER(TRIM($1))`, [code]
+    );
+    if (!result.rows.length) return res.status(401).json({ error: 'Code invalide' });
+    const student = result.rows[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    parentTokens.set(token, student.id);
+    res.json({ token, student });
+});
+
+app.post('/parent/logout', requireParent, (req, res) => {
+    const token = req.headers['authorization'].replace('Bearer ', '').trim();
+    parentTokens.delete(token);
+    res.json({ ok: true });
+});
+
+app.get('/api/parent/report', requireParent, async (req, res) => {
+    try {
+        const [studentRes, gradesRes] = await Promise.all([
+            pool.query(
+                `SELECT s.id, s.full_name, s.teacher_name, s.enrolled_at,
+                        c.name_fr AS course_fr, c.name_ar AS course_ar
+                 FROM students s
+                 LEFT JOIN courses c ON c.id = s.course_id
+                 WHERE s.id = $1`, [req.studentId]
+            ),
+            pool.query(
+                `SELECT session_date, created_at, attendance,
+                        revision_score, recitation_score, preparation_score,
+                        arabe_score, tarbiya_score, devoir_score, remarque, final_grade
+                 FROM session_grades
+                 WHERE student_name = (SELECT full_name FROM students WHERE id = $1)
+                 ORDER BY COALESCE(session_date::date, created_at::date) DESC`, [req.studentId]
+            )
+        ]);
+        if (!studentRes.rows.length) return res.status(404).json({ error: 'Étudiant introuvable' });
+        res.json({ student: studentRes.rows[0], grades: gradesRes.rows });
+    } catch (err) {
+        console.error('/api/parent/report error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Admin: Teachers ──────────────────────────────────────────────────────────
 
 app.get('/admin/teachers', requireAdmin, async (req, res) => {
@@ -324,7 +413,7 @@ app.delete('/admin/teachers/:id', requireAdmin, async (req, res) => {
 app.get('/admin/students', requireAdmin, async (req, res) => {
     const result = await pool.query(
         `SELECT s.id, s.full_name, s.teacher_name, s.email, s.phone,
-                c.name_fr AS course_name, s.enrolled_at
+                c.name_fr AS course_name, s.enrolled_at, s.parent_code
          FROM students s
          LEFT JOIN courses c ON s.course_id = c.id
          ORDER BY s.enrolled_at DESC`
@@ -335,9 +424,15 @@ app.get('/admin/students', requireAdmin, async (req, res) => {
 app.post('/admin/students', requireAdmin, async (req, res) => {
     const { full_name, teacher_name, email, phone, course_id } = req.body;
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
+    let code, ok = false;
+    while (!ok) {
+        code = genParentCode();
+        const exists = await pool.query('SELECT 1 FROM students WHERE parent_code=$1', [code]);
+        ok = !exists.rows.length;
+    }
     const result = await pool.query(
-        'INSERT INTO students (full_name, teacher_name, email, phone, course_id) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-        [full_name, teacher_name || null, email || null, phone || null, course_id || null]
+        'INSERT INTO students (full_name, teacher_name, email, phone, course_id, parent_code) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+        [full_name, teacher_name || null, email || null, phone || null, course_id || null, code]
     );
     res.json(result.rows[0]);
 });
@@ -345,6 +440,17 @@ app.post('/admin/students', requireAdmin, async (req, res) => {
 app.delete('/admin/students/:id', requireAdmin, async (req, res) => {
     await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
+});
+
+app.post('/admin/students/:id/regen-code', requireAdmin, async (req, res) => {
+    let code, ok = false;
+    while (!ok) {
+        code = genParentCode();
+        const exists = await pool.query('SELECT 1 FROM students WHERE parent_code=$1', [code]);
+        ok = !exists.rows.length;
+    }
+    await pool.query('UPDATE students SET parent_code=$1 WHERE id=$2', [code, req.params.id]);
+    res.json({ parent_code: code });
 });
 
 // ── Admin: Courses ───────────────────────────────────────────────────────────

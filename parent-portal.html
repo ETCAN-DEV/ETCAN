@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace Parents — Académie ETCAN</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:   #1e3a5f;
+    --gold:   #c8a94e;
+    --gold-l: #f0d98a;
+    --bg:     #f4f6fa;
+    --card:   #ffffff;
+    --border: #e2e8f0;
+    --text:   #1a1a2e;
+    --muted:  #6c7a95;
+    --green:  #2e7d32;
+    --orange: #e65100;
+    --red:    #c62828;
+    --radius: 14px;
+  }
+
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Login screen ─────────────────────────────────────────────────────── */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--navy) 0%, #2d5a9e 100%);
+    padding: 24px;
+  }
+
+  .login-card {
+    background: white;
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.25);
+    text-align: center;
+  }
+
+  .login-logo { font-size: 3rem; margin-bottom: 6px; }
+  .login-title-fr { font-size: 1.2rem; font-weight: 800; color: var(--navy); margin-bottom: 2px; }
+  .login-title-ar { font-size: 1rem; color: var(--gold); direction: rtl; margin-bottom: 8px; }
+  .login-sub { font-size: .82rem; color: var(--muted); margin-bottom: 28px; }
+
+  .login-label { display: block; text-align: left; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .6px; }
+  .login-input {
+    width: 100%; padding: 14px 16px; border: 2px solid var(--border);
+    border-radius: 10px; font-size: 1.1rem; letter-spacing: 2px; text-align: center;
+    text-transform: uppercase; font-weight: 700; color: var(--navy);
+    transition: border-color .2s;
+    outline: none;
+  }
+  .login-input:focus { border-color: var(--navy); }
+  .login-btn {
+    width: 100%; margin-top: 18px; padding: 14px;
+    background: var(--navy); color: white; border: none;
+    border-radius: 10px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; transition: opacity .2s;
+  }
+  .login-btn:hover { opacity: .88; }
+  .login-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .login-error { margin-top: 12px; color: var(--red); font-size: .85rem; min-height: 20px; }
+  .login-hint { margin-top: 20px; font-size: .75rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; }
+
+  /* ── Dashboard ─────────────────────────────────────────────────────────── */
+  #dashboard { display: none; }
+
+  .topbar {
+    background: var(--navy);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-logo { font-size: 1.4rem; }
+  .topbar-name { color: white; font-weight: 700; font-size: 1rem; }
+  .topbar-sub  { color: rgba(255,255,255,.6); font-size: .75rem; }
+  .topbar-logout {
+    background: rgba(255,255,255,.12); color: white; border: 1px solid rgba(255,255,255,.25);
+    padding: 7px 14px; border-radius: 8px; font-size: .8rem; cursor: pointer;
+    transition: background .2s;
+  }
+  .topbar-logout:hover { background: rgba(255,255,255,.22); }
+
+  .dashboard-body { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Student info card */
+  .info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .info-avatar {
+    width: 60px; height: 60px; background: linear-gradient(135deg, var(--navy), #2d5a9e);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; flex-shrink: 0;
+  }
+  .info-name { font-size: 1.1rem; font-weight: 800; color: var(--navy); }
+  .info-meta { font-size: .83rem; color: var(--muted); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .info-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg); border-radius: 20px; padding: 3px 11px;
+    font-size: .78rem; color: var(--muted);
+  }
+  .info-chip strong { color: var(--text); }
+
+  /* Stat row */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 16px; text-align: center;
+  }
+  .stat-card.green { border-color: #c8e6c9; background: #f0faf0; }
+  .stat-card.orange { border-color: #ffe0b2; background: #fff8f0; }
+  .stat-card.red { border-color: #ffcdd2; background: #fff4f4; }
+  .stat-card.navy { border-color: #b8cce4; background: #eef4fb; }
+  .stat-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .stat-card.green .stat-num { color: var(--green); }
+  .stat-card.orange .stat-num { color: var(--orange); }
+  .stat-card.red .stat-num { color: var(--red); }
+  .stat-card.navy .stat-num { color: var(--navy); }
+  .stat-lbl { font-size: .75rem; color: var(--muted); margin-top: 6px; }
+
+  /* Alert banner */
+  .alert-banner {
+    background: #fff4f4; border: 1.5px solid #f5c6c6;
+    border-radius: 12px; padding: 16px 20px;
+    margin-bottom: 22px; display: flex; align-items: flex-start; gap: 12px;
+  }
+  .alert-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .alert-title { font-weight: 700; color: var(--red); font-size: .92rem; margin-bottom: 4px; }
+  .alert-body { font-size: .83rem; color: #6c1f1f; }
+
+  /* Section title */
+  .section-title {
+    font-size: .78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted); margin-bottom: 12px;
+  }
+
+  /* Attendance bar */
+  .att-bar-wrap { background: #e8ecf2; border-radius: 20px; height: 10px; overflow: hidden; display: flex; margin-bottom: 10px; }
+  .att-seg { height: 100%; transition: width .4s; }
+  .att-seg.present { background: var(--green); }
+  .att-seg.late    { background: var(--orange); }
+  .att-seg.absent  { background: var(--red); }
+  .att-legend { display: flex; gap: 16px; font-size: .78rem; color: var(--muted); }
+  .att-legend span { display: flex; align-items: center; gap: 5px; }
+  .att-legend span::before { content: ''; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .att-legend .l-present::before { background: var(--green); }
+  .att-legend .l-late::before    { background: var(--orange); }
+  .att-legend .l-absent::before  { background: var(--red); }
+
+  /* Sessions table */
+  .table-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 22px;
+  }
+  .table-card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--navy); }
+  th { padding: 11px 14px; color: white; text-align: left; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: .85rem; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    border-radius: 20px; padding: 3px 10px; font-size: .75rem; font-weight: 700; white-space: nowrap;
+  }
+  .badge.present { background: #e8f5e9; color: var(--green); }
+  .badge.late    { background: #fff3e0; color: var(--orange); }
+  .badge.absent  { background: #ffebee; color: var(--red); }
+
+  .grade-pill {
+    font-weight: 800; font-size: .9rem;
+  }
+  .grade-pill.high { color: var(--green); }
+  .grade-pill.mid  { color: var(--orange); }
+  .grade-pill.low  { color: var(--red); }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: .9rem; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 20px; font-size: .75rem; color: var(--muted); }
+
+  @media (max-width: 500px) {
+    .login-card { padding: 30px 20px; }
+    .info-card { flex-direction: column; }
+    .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🎓</div>
+    <div class="login-title-fr">Académie ETCAN</div>
+    <div class="login-title-ar">أكاديمية إتقان</div>
+    <div class="login-sub">Espace Parents &nbsp;·&nbsp; بوابة أولياء الأمور</div>
+
+    <label class="login-label" for="code-input">Code d'accès — رمز الدخول</label>
+    <input id="code-input" class="login-input" type="text" maxlength="8"
+           placeholder="XXXXXXXX" autocomplete="off" autocapitalize="characters"
+           onkeydown="if(event.key==='Enter') doLogin()" oninput="this.value=this.value.toUpperCase()" />
+
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Se connecter — دخول</button>
+    <div class="login-error" id="login-error"></div>
+
+    <div class="login-hint">
+      Votre code vous a été remis par l'administration.<br>
+      <span style="direction:rtl;display:block;margin-top:4px">رمز الدخول يُسلَّم من طرف الإدارة</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ════════════════════════════════════════════════════════════ -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">🎓</div>
+      <div>
+        <div class="topbar-name">Académie ETCAN — أكاديمية إتقان</div>
+        <div class="topbar-sub" id="topbar-student">Espace Parents</div>
+      </div>
+    </div>
+    <button class="topbar-logout" onclick="doLogout()">✕ Déconnexion</button>
+  </div>
+
+  <div class="dashboard-body">
+
+    <!-- Student info -->
+    <div class="info-card">
+      <div class="info-avatar">👤</div>
+      <div style="flex:1">
+        <div class="info-name" id="d-name"></div>
+        <div class="info-meta">
+          <span class="info-chip">👨‍🏫 <strong id="d-teacher"></strong></span>
+          <span class="info-chip" id="d-course-chip" style="display:none">📚 <strong id="d-course"></strong></span>
+          <span class="info-chip">📅 <strong id="d-enrolled"></strong></span>
+        </div>
+      </div>
+      <a id="d-bulletin-link" href="#" target="_blank"
+         style="padding:10px 18px;background:var(--navy);color:white;border-radius:10px;text-decoration:none;font-size:.85rem;font-weight:700;white-space:nowrap">
+        📄 Bulletin complet
+      </a>
+    </div>
+
+    <!-- Absence alert -->
+    <div id="d-alert" class="alert-banner" style="display:none">
+      <div class="alert-icon">⚠️</div>
+      <div>
+        <div class="alert-title">Absences répétées — غيابات متكررة</div>
+        <div class="alert-body" id="d-alert-msg"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section-title">Vue d'ensemble — نظرة عامة</div>
+    <div class="stats-row" id="d-stats">
+      <div class="stat-card navy"><div class="stat-num" id="st-total">—</div><div class="stat-lbl">Séances totales</div></div>
+      <div class="stat-card green"><div class="stat-num" id="st-present">—</div><div class="stat-lbl">Présences</div></div>
+      <div class="stat-card orange"><div class="stat-num" id="st-late">—</div><div class="stat-lbl">Retards</div></div>
+      <div class="stat-card red"><div class="stat-num" id="st-absent">—</div><div class="stat-lbl">Absences</div></div>
+      <div class="stat-card navy"><div class="stat-num" id="st-avg">—</div><div class="stat-lbl">Moyenne générale</div></div>
+    </div>
+
+    <!-- Attendance bar -->
+    <div class="table-card" style="padding:20px 24px;margin-bottom:22px">
+      <div class="section-title" style="margin-bottom:14px">Présence — الحضور والغياب</div>
+      <div class="att-bar-wrap" id="att-bar">
+        <div class="att-seg present" id="att-present-seg" style="width:0%"></div>
+        <div class="att-seg late"    id="att-late-seg"    style="width:0%"></div>
+        <div class="att-seg absent"  id="att-absent-seg"  style="width:0%"></div>
+      </div>
+      <div class="att-legend">
+        <span class="l-present"><span id="att-p-pct">0%</span> Présent</span>
+        <span class="l-late"><span id="att-l-pct">0%</span> Retard</span>
+        <span class="l-absent"><span id="att-a-pct">0%</span> Absent</span>
+      </div>
+    </div>
+
+    <!-- Sessions table -->
+    <div class="section-title">Historique des séances — سجل الجلسات</div>
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Présence</th>
+              <th>Révision</th>
+              <th>Récitation</th>
+              <th>Préparation</th>
+              <th>Arabe</th>
+              <th>Tarbiya</th>
+              <th>Devoir</th>
+              <th>Note finale</th>
+              <th>Remarque</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-tbody">
+            <tr><td colspan="10" class="empty-state">Chargement…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      Académie ETCAN &nbsp;·&nbsp; أكاديمية إتقان &nbsp;·&nbsp;
+      <span id="footer-date"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TOKEN_KEY = 'parent_token';
+  const STUD_KEY  = 'parent_student';
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+
+  function api(method, path, body) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    if (body)  opts.body = JSON.stringify(body);
+    return fetch(path, opts).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.statusText);
+      return data;
+    });
+  }
+
+  function fmt(date) {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('fr-FR');
+  }
+
+  function gradePill(val) {
+    if (val == null || val === '') return '<span style="color:var(--muted)">—</span>';
+    const n = parseFloat(val);
+    if (isNaN(n)) return val;
+    const cls = n >= 14 ? 'high' : n >= 10 ? 'mid' : 'low';
+    return `<span class="grade-pill ${cls}">${n.toFixed(1)}</span>`;
+  }
+
+  function attBadge(att) {
+    if (!att || att === 'present') return '<span class="badge present">✔ Présent</span>';
+    if (att === 'late')   return '<span class="badge late">⏱ Retard</span>';
+    if (att === 'absent') return '<span class="badge absent">✘ Absent</span>';
+    return att;
+  }
+
+  // ── login ─────────────────────────────────────────────────────────────────
+
+  async function doLogin() {
+    const code  = document.getElementById('code-input').value.trim();
+    const errEl = document.getElementById('login-error');
+    const btn   = document.getElementById('login-btn');
+    errEl.textContent = '';
+    if (!code) { errEl.textContent = 'Veuillez saisir votre code.'; return; }
+    btn.disabled = true; btn.textContent = '⏳ Connexion…';
+    try {
+      const data = await api('POST', '/parent/login', { code });
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(STUD_KEY, JSON.stringify(data.student));
+      showDashboard(data.student);
+    } catch (e) {
+      errEl.textContent = 'Code invalide. Veuillez vérifier et réessayer.';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Se connecter — دخول';
+    }
+  }
+
+  async function doLogout() {
+    try { await api('POST', '/parent/logout'); } catch {}
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(STUD_KEY);
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('dashboard').style.display    = 'none';
+    document.getElementById('code-input').value = '';
+  }
+
+  // ── dashboard ─────────────────────────────────────────────────────────────
+
+  function showDashboard(student) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display    = 'block';
+    document.getElementById('topbar-student').textContent = student.full_name;
+    document.getElementById('d-name').textContent         = student.full_name;
+    document.getElementById('d-teacher').textContent      = student.teacher_name || '—';
+    document.getElementById('d-enrolled').textContent     = fmt(student.enrolled_at);
+    if (student.course_fr) {
+      document.getElementById('d-course').textContent = student.course_fr;
+      document.getElementById('d-course-chip').style.display = 'inline-flex';
+    }
+    document.getElementById('d-bulletin-link').href = `/report/${student.id}`;
+    document.getElementById('footer-date').textContent = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    loadReport(student.id);
+  }
+
+  async function loadReport(studentId) {
+    try {
+      const { student, grades } = await api('GET', '/api/parent/report');
+
+      // Stats
+      const total   = grades.length;
+      const present = grades.filter(g => !g.attendance || g.attendance === 'present').length;
+      const late    = grades.filter(g => g.attendance === 'late').length;
+      const absent  = grades.filter(g => g.attendance === 'absent').length;
+      const finals  = grades.map(g => parseFloat(g.final_grade)).filter(v => !isNaN(v));
+      const avg     = finals.length ? (finals.reduce((a,b)=>a+b,0)/finals.length).toFixed(1) : '—';
+
+      document.getElementById('st-total').textContent   = total;
+      document.getElementById('st-present').textContent = present;
+      document.getElementById('st-late').textContent    = late;
+      document.getElementById('st-absent').textContent  = absent;
+      document.getElementById('st-avg').textContent     = avg !== '—' ? avg + '/20' : '—';
+
+      // Attendance bar
+      if (total > 0) {
+        const pp = (present/total*100).toFixed(1);
+        const lp = (late/total*100).toFixed(1);
+        const ap = (absent/total*100).toFixed(1);
+        document.getElementById('att-present-seg').style.width = pp + '%';
+        document.getElementById('att-late-seg').style.width    = lp + '%';
+        document.getElementById('att-absent-seg').style.width  = ap + '%';
+        document.getElementById('att-p-pct').textContent = pp + '% ';
+        document.getElementById('att-l-pct').textContent = lp + '% ';
+        document.getElementById('att-a-pct').textContent = ap + '% ';
+      }
+
+      // Absence alert: last 3 all absent
+      const last3 = grades.slice(0, 3);
+      if (last3.length === 3 && last3.every(g => g.attendance === 'absent')) {
+        const alertEl = document.getElementById('d-alert');
+        alertEl.style.display = 'flex';
+        document.getElementById('d-alert-msg').textContent =
+          `${student.full_name} a 3 absences consécutives. Veuillez contacter l'académie. — لدى الطالب 3 غيابات متتالية، يرجى التواصل مع الأكاديمية.`;
+      }
+
+      // Sessions table
+      const tbody = document.getElementById('sessions-tbody');
+      if (!grades.length) {
+        tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Aucune séance enregistrée.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = grades.map(g => {
+        const date = g.session_date || g.created_at;
+        return `<tr>
+          <td style="white-space:nowrap">${fmt(date)}</td>
+          <td>${attBadge(g.attendance)}</td>
+          <td style="text-align:center">${gradePill(g.revision_score)}</td>
+          <td style="text-align:center">${gradePill(g.recitation_score)}</td>
+          <td style="text-align:center">${gradePill(g.preparation_score)}</td>
+          <td style="text-align:center">${gradePill(g.arabe_score)}</td>
+          <td style="text-align:center">${gradePill(g.tarbiya_score)}</td>
+          <td style="text-align:center">${gradePill(g.devoir_score)}</td>
+          <td style="text-align:center;font-weight:800">${gradePill(g.final_grade)}<span style="color:var(--muted);font-weight:400;font-size:.75rem">/20</span></td>
+          <td style="color:var(--muted);font-size:.82rem;max-width:180px">${g.remarque || ''}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      document.getElementById('sessions-tbody').innerHTML =
+        `<tr><td colspan="10" class="empty-state">Erreur de chargement — ${e.message}</td></tr>`;
+    }
+  }
+
+  // ── auto-login if token in localStorage ──────────────────────────────────
+  (function init() {
+    const token   = localStorage.getItem(TOKEN_KEY);
+    const student = localStorage.getItem(STUD_KEY);
+    if (token && student) {
+      try {
+        const s = JSON.parse(student);
+        showDashboard(s);
+      } catch { localStorage.clear(); }
+    }
+  })();
+</script>
+</body>
+</html>
