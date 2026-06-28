@@ -664,10 +664,14 @@
         <td>${r.course_name || '—'}</td>
         <td>${r.phone || '—'}</td>
         <td>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <code style="font-size:.82rem;background:#f4f6fa;padding:3px 8px;border-radius:6px;letter-spacing:1.5px;font-weight:700;color:var(--navy)" id="code-${r.id}">${r.parent_code || '—'}</code>
             <button class="btn" style="font-size:.72rem;padding:4px 8px" onclick="copyCode('${r.parent_code || ''}','${r.id}')" title="Copier">📋</button>
             <button class="btn" style="font-size:.72rem;padding:4px 8px" onclick="regenCode(${r.id})" title="Régénérer">🔄</button>
+            ${r.parent_code ? `<a href="${whatsappLink(r.full_name, r.parent_code)}" target="_blank" rel="noopener"
+               style="display:inline-flex;align-items:center;gap:4px;background:#25D366;color:white;border-radius:6px;padding:4px 9px;font-size:.72rem;font-weight:700;text-decoration:none;white-space:nowrap">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.821.487 3.53 1.338 5.002L2.049 22l5.137-1.347A9.955 9.955 0 0012 22c5.522 0 10-4.477 10-10S17.522 2 12 2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
+               WhatsApp</a>` : ''}
           </div>
         </td>
         <td><div class="actions">
@@ -698,6 +702,12 @@
     await api('DELETE', `/admin/students/${id}`);
     toast('Supprimé.');
     loadStudents();
+  }
+
+  function whatsappLink(studentName, code) {
+    const siteUrl = window.location.origin + '/parent';
+    const msg = `Bonjour,\n\nVoici votre accès à l'Espace Parents de l'Académie ETCAN pour *${studentName}* :\n\n🔑 Code d'accès : *${code}*\n🔗 Lien : ${siteUrl}\n\nبوابة أولياء الأمور — رمز الدخول : *${code}*`;
+    return 'https://wa.me/?text=' + encodeURIComponent(msg);
   }
 
   function copyCode(code, id) {
