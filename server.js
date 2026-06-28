@@ -442,6 +442,17 @@ app.delete('/admin/students/:id', requireAdmin, async (req, res) => {
     res.json({ ok: true });
 });
 
+app.get('/admin/students/:id', requireAdmin, async (req, res) => {
+    const result = await pool.query(
+        `SELECT s.id, s.full_name, s.teacher_name, s.phone, s.email, s.enrolled_at,
+                s.parent_code, c.name_fr AS course_fr, c.name_ar AS course_ar
+         FROM students s LEFT JOIN courses c ON c.id = s.course_id
+         WHERE s.id = $1`, [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+});
+
 app.post('/admin/students/:id/regen-code', requireAdmin, async (req, res) => {
     let code, ok = false;
     while (!ok) {
@@ -901,6 +912,7 @@ app.post('/admin/send-digest', requireAdmin, async (req, res) => {
 // ── Serve static files (must be last) ────────────────────────────────────────
 
 app.get('/admin', (req, res) => res.sendFile(join(__dirname, 'admin.html')));
+app.get('/parent-sheet', (req, res) => res.sendFile(join(__dirname, 'parent-sheet.html')));
 app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 5000;

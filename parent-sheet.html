@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche Parent — Académie ETCAN</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #1e3a5f;
+    --gold: #c8a94e;
+    --bg:   #f4f6fa;
+  }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: #1a1a2e;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px 60px;
+  }
+
+  /* ── action bar (hidden on print) ───────────────────────────────────── */
+  .action-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn-print {
+    background: var(--navy); color: white;
+    border: none; border-radius: 10px;
+    padding: 11px 26px; font-size: .95rem; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    transition: opacity .2s;
+  }
+  .btn-print:hover { opacity: .85; }
+
+  .btn-back {
+    background: white; color: var(--navy);
+    border: 2px solid var(--navy); border-radius: 10px;
+    padding: 9px 18px; font-size: .9rem; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-back:hover { background: #f0f4f8; }
+
+  .err { color: #c62828; font-size: .9rem; margin-top: 8px; }
+
+  /* ── sheet ───────────────────────────────────────────────────────────── */
+  .sheet {
+    width: 210mm;
+    max-width: 100%;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.12);
+    overflow: hidden;
+  }
+
+  /* header band */
+  .sheet-header {
+    background: var(--navy);
+    padding: 28px 36px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .hdr-logo { font-size: 2.4rem; }
+  .hdr-text-fr {
+    color: white; font-size: 1.4rem; font-weight: 800; line-height: 1.2;
+  }
+  .hdr-text-ar {
+    color: var(--gold); font-size: 1rem; direction: rtl; margin-top: 3px;
+  }
+  .hdr-sub {
+    color: rgba(255,255,255,.55); font-size: .78rem; margin-top: 6px;
+    letter-spacing: .5px;
+  }
+  .hdr-date { color: rgba(255,255,255,.5); font-size: .78rem; text-align: right; }
+
+  /* gold divider */
+  .gold-bar { height: 4px; background: linear-gradient(90deg, var(--gold), #f0d98a, var(--gold)); }
+
+  /* body */
+  .sheet-body { padding: 32px 36px 28px; }
+
+  /* student name block */
+  .student-block {
+    background: #f4f6fa;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 26px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .student-avatar {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, var(--navy), #2d5a9e);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+  .student-name { font-size: 1.25rem; font-weight: 800; color: var(--navy); }
+  .student-meta { font-size: .83rem; color: #6c7a95; margin-top: 5px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: white; border-radius: 20px; padding: 3px 10px;
+    font-size: .78rem; color: #6c7a95;
+  }
+  .meta-chip strong { color: #1a1a2e; }
+
+  /* two-column layout */
+  .cols { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: start; }
+
+  /* access code block */
+  .code-block { margin-bottom: 24px; }
+  .code-label {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: #6c7a95; margin-bottom: 10px;
+  }
+  .code-badge {
+    background: var(--navy);
+    color: white;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 6px;
+    padding: 16px 24px;
+    border-radius: 12px;
+    display: inline-block;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* instructions */
+  .instructions {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+  .inst-title { font-weight: 700; font-size: .85rem; color: var(--navy); margin-bottom: 10px; }
+  .inst-step {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: .82rem; color: #444; margin-bottom: 8px;
+  }
+  .inst-step:last-child { margin-bottom: 0; }
+  .inst-num {
+    background: var(--navy); color: white;
+    width: 20px; height: 20px; border-radius: 50%;
+    font-size: .7rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  .inst-ar {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    direction: rtl; text-align: right;
+    font-size: .82rem; color: #444; line-height: 1.7;
+  }
+  .inst-ar-title { font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+
+  /* QR column */
+  .qr-col { text-align: center; }
+  .qr-wrap {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px;
+    display: inline-block;
+    background: white;
+  }
+  .qr-label { font-size: .7rem; color: #6c7a95; margin-top: 8px; }
+
+  /* portal url */
+  .portal-url {
+    background: #f0f4f8;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: .78rem;
+    color: var(--navy);
+    font-weight: 600;
+    text-align: center;
+    margin-top: 20px;
+    word-break: break-all;
+  }
+  .portal-url span { color: #6c7a95; font-weight: 400; display: block; font-size: .72rem; margin-bottom: 3px; }
+
+  /* footer */
+  .sheet-footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .72rem;
+    color: #6c7a95;
+  }
+  .sheet-footer strong { color: var(--navy); }
+
+  /* watermark strip */
+  .confidential {
+    text-align: center;
+    font-size: .7rem;
+    color: #e2e8f0;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 6px;
+    background: var(--navy);
+    color: rgba(255,255,255,.3);
+  }
+
+  /* loading / error */
+  #loading { text-align: center; padding: 60px 20px; color: #6c7a95; }
+
+  /* ── print styles ────────────────────────────────────────────────────── */
+  @media print {
+    body { background: white; padding: 0; }
+    .action-bar { display: none !important; }
+    .sheet {
+      border-radius: 0;
+      box-shadow: none;
+      width: 100%;
+      max-width: 100%;
+    }
+    @page { margin: 12mm; size: A4; }
+  }
+
+  @media (max-width: 600px) {
+    .cols { grid-template-columns: 1fr; }
+    .sheet-header { flex-direction: column; align-items: flex-start; }
+    .sheet-body { padding: 20px; }
+    body { padding: 16px 10px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">⏳ Chargement de la fiche…</div>
+
+<div id="content" style="display:none;width:100%;max-width:210mm;display:none;flex-direction:column;align-items:center">
+
+  <!-- action bar -->
+  <div class="action-bar">
+    <a class="btn-back" href="/admin" onclick="history.back();return false;">← Retour</a>
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  </div>
+
+  <!-- sheet -->
+  <div class="sheet">
+
+    <div class="sheet-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="hdr-logo">🎓</div>
+          <div>
+            <div class="hdr-text-fr">Académie ETCAN</div>
+            <div class="hdr-text-ar">أكاديمية إتقان</div>
+          </div>
+        </div>
+        <div class="hdr-sub">Fiche d'accès — بطاقة دخول الولي</div>
+      </div>
+      <div class="hdr-date" id="hdr-date"></div>
+    </div>
+
+    <div class="gold-bar"></div>
+
+    <div class="sheet-body">
+
+      <!-- student info -->
+      <div class="student-block">
+        <div class="student-avatar">👤</div>
+        <div>
+          <div class="student-name" id="s-name">…</div>
+          <div class="student-meta">
+            <span class="meta-chip">👨‍🏫 <strong id="s-teacher">…</strong></span>
+            <span class="meta-chip" id="s-course-chip" style="display:none">📚 <strong id="s-course"></strong></span>
+            <span class="meta-chip">📅 <strong id="s-enrolled"></strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- two columns -->
+      <div class="cols">
+        <div>
+
+          <!-- code -->
+          <div class="code-block">
+            <div class="code-label">🔑 Code d'accès parent — رمز دخول الولي</div>
+            <div class="code-badge" id="s-code">……</div>
+          </div>
+
+          <!-- French instructions -->
+          <div class="instructions">
+            <div class="inst-title">📋 Comment accéder à l'Espace Parents ?</div>
+            <div class="inst-step">
+              <div class="inst-num">1</div>
+              <div>Ouvrez le lien ci-dessous ou scannez le QR code avec votre téléphone.</div>
+            </div>
+            <div class="inst-step">
+              <div class="inst-num">2</div>
+              <div>Saisissez votre <strong>code d'accès</strong> dans le champ prévu.</div>
+            </div>
+            <div class="inst-step">
+              <div class="inst-num">3</div>
+              <div>Consultez les notes, la présence et le bulletin de votre enfant.</div>
+            </div>
+          </div>
+
+          <!-- Arabic instructions -->
+          <div class="inst-ar">
+            <div class="inst-ar-title">كيفية الوصول إلى بوابة أولياء الأمور؟</div>
+            <div>١. افتح الرابط أدناه أو امسح رمز QR باستخدام هاتفك.</div>
+            <div>٢. أدخل <strong>رمز الدخول</strong> الخاص بك في الحقل المخصص.</div>
+            <div>٣. اطّلع على نتائج وحضور وبطاقة تقرير طفلك.</div>
+          </div>
+
+          <!-- portal URL -->
+          <div class="portal-url">
+            <span>🔗 Lien d'accès — رابط البوابة</span>
+            <span id="portal-url-text" style="color:var(--navy);font-weight:700"></span>
+          </div>
+
+        </div>
+
+        <!-- QR code -->
+        <div class="qr-col">
+          <div class="qr-wrap">
+            <div id="qrcode"></div>
+          </div>
+          <div class="qr-label">Scanner pour accéder<br>امسح للدخول</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="sheet-footer">
+      <div>Académie ETCAN &nbsp;·&nbsp; <strong id="footer-student"></strong></div>
+      <div>Document confidentiel — وثيقة سرية</div>
+    </div>
+
+    <div class="confidential">Confidentiel · سري · Ne pas divulguer</div>
+
+  </div>
+</div>
+
+<div id="error-msg" style="display:none;text-align:center;padding:60px 20px">
+  <div style="font-size:2rem;margin-bottom:12px">⚠️</div>
+  <div style="color:#c62828;font-weight:700" id="error-text">Impossible de charger la fiche.</div>
+  <div style="color:#6c7a95;font-size:.85rem;margin-top:8px">Assurez-vous d'être connecté en tant qu'administrateur.</div>
+  <a href="/admin" style="display:inline-block;margin-top:18px;padding:10px 22px;background:var(--navy);color:white;border-radius:8px;text-decoration:none;font-weight:700">← Retour au panneau admin</a>
+</div>
+
+<script>
+  const TOKEN_KEY = 'admin_token';
+
+  function api(method, path) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    return fetch(path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+      }
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.statusText);
+      return data;
+    });
+  }
+
+  function fmt(date) {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  function showError(msg) {
+    document.getElementById('loading').style.display    = 'none';
+    document.getElementById('content').style.display    = 'none';
+    document.getElementById('error-msg').style.display  = 'block';
+    if (msg) document.getElementById('error-text').textContent = msg;
+  }
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (!id) { showError('Aucun identifiant étudiant fourni.'); return; }
+
+    let student;
+    try {
+      student = await api('GET', `/admin/students/${id}`);
+    } catch (e) {
+      showError(e.message === 'Unauthorized'
+        ? 'Session expirée — veuillez vous reconnecter à l\'admin.'
+        : 'Étudiant introuvable.');
+      return;
+    }
+
+    // Fill fields
+    document.getElementById('s-name').textContent        = student.full_name;
+    document.getElementById('s-teacher').textContent     = student.teacher_name || '—';
+    document.getElementById('s-enrolled').textContent    = fmt(student.enrolled_at);
+    document.getElementById('s-code').textContent        = student.parent_code || '—';
+    document.getElementById('footer-student').textContent = student.full_name;
+    document.getElementById('hdr-date').textContent      = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+    if (student.course_fr) {
+      document.getElementById('s-course').textContent     = student.course_fr;
+      document.getElementById('s-course-chip').style.display = 'inline-flex';
+    }
+
+    // Portal URL
+    const portalUrl = window.location.origin + '/parent';
+    document.getElementById('portal-url-text').textContent = portalUrl;
+
+    // QR code (encodes the portal URL)
+    new QRCode(document.getElementById('qrcode'), {
+      text: portalUrl,
+      width: 160,
+      height: 160,
+      colorDark: '#1e3a5f',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    // Show content
+    document.getElementById('loading').style.display = 'none';
+    const contentEl = document.getElementById('content');
+    contentEl.style.display = 'flex';
+  }
+
+  init();
+</script>
+</body>
+</html>
